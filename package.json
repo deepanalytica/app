@@ -8,7 +8,9 @@
     "client:dev": "vite",
     "server:dev": "tsx watch engine/server.ts",
     "build": "vite build && tsc -p tsconfig.engine.json",
+    "build:frontend": "vite build",
     "server:start": "node dist/engine/server.js",
+    "start": "tsx engine/server.ts",
     "preview": "vite preview"
   },
   "dependencies": {
