@@ -3,6 +3,7 @@
 // Elite Scientific Research Team Architecture
 // ============================================================
 
+// ─── Research Agent Roles ──────────────────────────────────
 export type AgentRole =
   | 'research_director'
   | 'literature_reviewer'
@@ -14,6 +15,15 @@ export type AgentRole =
   | 'scientific_writer'
   | 'citation_manager';
 
+// ─── Code Analysis Agent Roles ─────────────────────────────
+export type CodeAgentRole =
+  | 'code_reviewer'
+  | 'architecture_analyst'
+  | 'security_auditor'
+  | 'documentation_generator';
+
+export type AnyAgentRole = AgentRole | CodeAgentRole;
+
 export type AgentStatus =
   | 'idle'
   | 'initializing'
@@ -22,8 +32,10 @@ export type AgentStatus =
   | 'reviewing'
   | 'completed'
   | 'error'
-  | 'waiting';
+  | 'waiting'
+  | 'paused';
 
+// ─── Research Phases ───────────────────────────────────────
 export type ResearchPhase =
   | 'initialization'
   | 'literature_review'
@@ -37,6 +49,18 @@ export type ResearchPhase =
   | 'final_review'
   | 'completed';
 
+// ─── Code Analysis Phases ──────────────────────────────────
+export type CodeAnalysisPhase =
+  | 'parsing'
+  | 'code_review'
+  | 'architecture'
+  | 'security'
+  | 'documentation'
+  | 'synthesis'
+  | 'report'
+  | 'completed';
+
+// ─── Message Bus Types ─────────────────────────────────────
 export type MessageType =
   | 'task_assignment'
   | 'task_result'
@@ -47,7 +71,10 @@ export type MessageType =
   | 'coordination'
   | 'broadcast'
   | 'error'
-  | 'progress_update';
+  | 'progress_update'
+  | 'user_feedback'
+  | 'pipeline_pause'
+  | 'pipeline_resume';
 
 export interface AgentMessage {
   id: string;
@@ -60,8 +87,9 @@ export interface AgentMessage {
   correlationId?: string;
 }
 
+// ─── Agent State & Metrics ─────────────────────────────────
 export interface AgentState {
-  role: AgentRole;
+  role: AnyAgentRole;
   status: AgentStatus;
   currentTask?: string;
   completedTasks: string[];
@@ -78,10 +106,11 @@ export interface AgentMetrics {
   qualityScore: number;
 }
 
+// ─── Research Findings ─────────────────────────────────────
 export interface ResearchFinding {
   id: string;
-  agentRole: AgentRole;
-  phase: ResearchPhase;
+  agentRole: AnyAgentRole;
+  phase: ResearchPhase | CodeAnalysisPhase;
   title: string;
   content: string;
   confidence: number; // 0-1
@@ -91,6 +120,7 @@ export interface ResearchFinding {
   citations?: Citation[];
 }
 
+// ─── Citations ─────────────────────────────────────────────
 export interface Citation {
   id: string;
   authors: string[];
@@ -101,8 +131,12 @@ export interface Citation {
   url?: string;
   abstract?: string;
   relevanceScore: number;
+  citationCount?: number;
+  verified?: boolean;        // true if verified via CrossRef/Semantic Scholar
+  source?: 'semantic_scholar' | 'arxiv' | 'crossref' | 'generated';
 }
 
+// ─── Research Session ──────────────────────────────────────
 export interface ResearchSession {
   id: string;
   topic: string;
@@ -118,6 +152,9 @@ export interface ResearchSession {
   citations: Citation[];
   paper?: ResearchPaper;
   metadata: SessionMetadata;
+  // Interactive control
+  paused?: boolean;
+  feedbackQueue?: InteractiveFeedback[];
 }
 
 export interface SessionMetadata {
@@ -128,6 +165,7 @@ export interface SessionMetadata {
   qualityScore: number;
 }
 
+// ─── Research Paper ────────────────────────────────────────
 export interface ResearchPaper {
   title: string;
   abstract: string;
@@ -148,6 +186,7 @@ export interface PaperSection {
   order: number;
 }
 
+// ─── Tasks ─────────────────────────────────────────────────
 export interface ResearchTask {
   id: string;
   assignedTo: AgentRole;
@@ -162,7 +201,7 @@ export interface ResearchTask {
 
 export interface TaskResult {
   taskId: string;
-  agentRole: AgentRole;
+  agentRole: AnyAgentRole;
   success: boolean;
   findings: ResearchFinding[];
   data: Record<string, unknown>;
@@ -172,6 +211,7 @@ export interface TaskResult {
   timestamp: Date;
 }
 
+// ─── Stream Events ─────────────────────────────────────────
 export interface StreamEvent {
   type:
     | 'agent_update'
@@ -182,13 +222,21 @@ export interface StreamEvent {
     | 'paper_ready'
     | 'error'
     | 'session_complete'
-    | 'progress';
+    | 'progress'
+    | 'pipeline_paused'
+    | 'pipeline_resumed'
+    | 'user_feedback_received'
+    | 'agent_chat_response'
+    | 'tool_call'
+    | 'tool_result'
+    | 'code_analysis_ready';
   sessionId: string;
-  agentRole?: AgentRole;
+  agentRole?: AnyAgentRole;
   data: Record<string, unknown>;
   timestamp: Date;
 }
 
+// ─── Research Config ───────────────────────────────────────
 export interface ResearchConfig {
   topic: string;
   researchQuestion: string;
@@ -198,4 +246,153 @@ export interface ResearchConfig {
   depth: 'quick' | 'standard' | 'comprehensive' | 'exhaustive';
   outputFormat: 'summary' | 'report' | 'full_paper';
   language: string;
+  enableRealSearch?: boolean;   // Use Semantic Scholar + arXiv APIs
+  interactiveMode?: boolean;    // Enable pause/resume/feedback
+}
+
+// ─── Interactive Pipeline Control ──────────────────────────
+export interface InteractiveFeedback {
+  id: string;
+  timestamp: Date;
+  phase: ResearchPhase;
+  type: 'correction' | 'expansion' | 'redirect' | 'approval' | 'rejection';
+  targetAgent?: AgentRole;
+  message: string;
+  injectedAt?: ResearchPhase; // Which phase it was injected into
+}
+
+export interface AgentChatMessage {
+  sessionId: string;
+  agentRole: AgentRole;
+  userMessage: string;
+  agentResponse?: string;
+  timestamp: Date;
+}
+
+// ─── Code Analysis Types ───────────────────────────────────
+export type CodeInputType = 'paste' | 'files' | 'github_url';
+
+export interface CodeFile {
+  name: string;
+  path: string;
+  content: string;
+  language: string;
+  sizeBytes?: number;
+  lineCount?: number;
+}
+
+export interface CodeAnalysisConfig {
+  inputType: CodeInputType;
+  // For 'paste'
+  code?: string;
+  language?: string;
+  fileName?: string;
+  // For 'files'
+  files?: CodeFile[];
+  // For 'github_url'
+  githubUrl?: string;
+  githubToken?: string;
+  // Analysis options
+  projectName?: string;
+  projectDescription?: string;
+  analysisDepth: 'quick' | 'standard' | 'comprehensive';
+  focusAreas: CodeFocusArea[];
+  outputFormat: 'summary' | 'full_report';
+}
+
+export type CodeFocusArea =
+  | 'security'
+  | 'architecture'
+  | 'quality'
+  | 'documentation'
+  | 'performance'
+  | 'testing';
+
+export interface CodeIssue {
+  id: string;
+  severity: 'critical' | 'high' | 'medium' | 'low' | 'info';
+  category: 'security' | 'quality' | 'architecture' | 'performance' | 'maintainability' | 'documentation';
+  title: string;
+  description: string;
+  file?: string;
+  lineNumber?: number;
+  codeSnippet?: string;
+  suggestion: string;
+  references?: string[];
+}
+
+export interface ArchitectureInsight {
+  type: 'pattern' | 'antipattern' | 'dependency' | 'coupling' | 'cohesion' | 'principle';
+  title: string;
+  description: string;
+  affectedFiles?: string[];
+  recommendation?: string;
+}
+
+export interface CodeMetrics {
+  totalFiles: number;
+  totalLines: number;
+  languages: Record<string, number>; // language -> line count
+  issuesBySeverity: Record<string, number>;
+  overallScore: number; // 0-100
+  securityScore: number;
+  maintainabilityScore: number;
+  documentationScore: number;
+}
+
+export interface CodeAnalysisReport {
+  projectName: string;
+  summary: string;
+  metrics: CodeMetrics;
+  issues: CodeIssue[];
+  architectureInsights: ArchitectureInsight[];
+  generatedDocs: GeneratedDocumentation;
+  recommendations: string[];
+  sections: PaperSection[];
+  generatedAt: Date;
+}
+
+export interface GeneratedDocumentation {
+  readme?: string;
+  apiDocs?: string;
+  architectureDiagram?: string; // ASCII/Mermaid
+  setupGuide?: string;
+  contributingGuide?: string;
+}
+
+export interface CodeAnalysisSession {
+  id: string;
+  config: CodeAnalysisConfig;
+  startTime: Date;
+  endTime?: Date;
+  phase: CodeAnalysisPhase;
+  files: CodeFile[];
+  findings: ResearchFinding[];
+  report?: CodeAnalysisReport;
+  metadata: SessionMetadata;
+  agents: Map<CodeAgentRole, AgentState>;
+}
+
+// ─── Export Types ──────────────────────────────────────────
+export type ExportFormat = 'latex' | 'markdown' | 'html' | 'json';
+
+export interface ExportResult {
+  format: ExportFormat;
+  content: string;
+  filename: string;
+  mimeType: string;
+}
+
+// ─── Academic Search Types ─────────────────────────────────
+export interface AcademicSearchResult {
+  title: string;
+  authors: string[];
+  year: number;
+  abstract: string;
+  doi?: string;
+  url?: string;
+  citationCount?: number;
+  venue?: string;
+  source: 'semantic_scholar' | 'arxiv' | 'crossref';
+  paperId?: string; // Semantic Scholar ID
 }

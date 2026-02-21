@@ -6,6 +6,10 @@
 import { BaseAgent, type AgentConfig, type EventEmitFn } from './BaseAgent';
 import { MessageBus } from '../coordination/MessageBus';
 import type { ResearchTask, TaskResult } from '../models/types';
+import {
+  academicSearchTools,
+  executeAcademicSearchTool,
+} from '../tools/AcademicSearchTool';
 
 const SYSTEM_PROMPT = `You are a world-class academic librarian and systematic review specialist with expertise across all scientific disciplines. You have a photographic memory of millions of scientific papers and can instantly identify the most relevant, high-quality research.
 
@@ -108,7 +112,21 @@ A 2-3 paragraph synthesis of what the literature collectively tells us about the
 Be specific, cite real or highly plausible papers, and provide genuine scholarly insight.
 `;
 
-    const result = await this.callClaude(prompt);
+    // Use real academic search tools if enabled (via environment variable or config)
+    const useRealSearch = process.env.ENABLE_REAL_SEARCH !== 'false'; // default: on
+    let result: { text: string; thinking: string; tokensUsed: number; thinkingTokens: number; toolCallCount?: number };
+
+    if (useRealSearch) {
+      result = await this.callClaudeWithTools(
+        prompt,
+        academicSearchTools,
+        executeAcademicSearchTool,
+        undefined,
+        5 // max tool rounds — will search multiple queries
+      );
+    } else {
+      result = await this.callClaude(prompt);
+    }
 
     const finding = this.createFinding(
       'Systematic Literature Review',
