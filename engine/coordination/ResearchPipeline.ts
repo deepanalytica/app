@@ -1,6 +1,6 @@
 // ============================================================
 // RESEARCH PIPELINE — Orchestrates Multi-Agent Workflow
-// Manages execution order, parallelism, and data flow
+// Supports: Express+WebSocket (local dev) and SSE (Vercel)
 // ============================================================
 
 import { EventEmitter } from 'events';
@@ -26,48 +26,88 @@ import type {
   ResearchPaper,
 } from '../models/types';
 
-export type PipelineEventHandler = (event: StreamEvent) => void;
+export interface StartResult {
+  sessionId: string;
+}
+
+export type SSEWriter = (event: StreamEvent) => void;
 
 export class ResearchPipeline extends EventEmitter {
   private messageBus: MessageBus;
   private sessions: Map<string, ResearchSession> = new Map();
-
-  // Agents
-  private director: ResearchDirector;
-  private literatureAgent: LiteratureReviewAgent;
-  private hypothesisAgent: HypothesisAgent;
-  private methodologyAgent: MethodologyAgent;
-  private dataAnalystAgent: DataAnalysisAgent;
-  private criticalReviewAgent: CriticalReviewAgent;
-  private synthesisAgent: SynthesisAgent;
-  private writerAgent: ScientificWriterAgent;
-  private citationAgent: CitationManagerAgent;
+  private pendingSessions: Map<string, ResearchConfig> = new Map();
 
   constructor() {
     super();
     this.setMaxListeners(100);
     this.messageBus = new MessageBus();
-
-    const emitEvent: (event: StreamEvent) => void = (event) => {
-      this.emit('stream', event);
-    };
-
-    // Initialize all agents
-    this.director = new ResearchDirector(this.messageBus, emitEvent);
-    this.literatureAgent = new LiteratureReviewAgent(this.messageBus, emitEvent);
-    this.hypothesisAgent = new HypothesisAgent(this.messageBus, emitEvent);
-    this.methodologyAgent = new MethodologyAgent(this.messageBus, emitEvent);
-    this.dataAnalystAgent = new DataAnalysisAgent(this.messageBus, emitEvent);
-    this.criticalReviewAgent = new CriticalReviewAgent(this.messageBus, emitEvent);
-    this.synthesisAgent = new SynthesisAgent(this.messageBus, emitEvent);
-    this.writerAgent = new ScientificWriterAgent(this.messageBus, emitEvent);
-    this.citationAgent = new CitationManagerAgent(this.messageBus, emitEvent);
   }
 
+  private makeAgents(emitEvent: SSEWriter) {
+    return {
+      director: new ResearchDirector(this.messageBus, emitEvent),
+      literature: new LiteratureReviewAgent(this.messageBus, emitEvent),
+      hypothesis: new HypothesisAgent(this.messageBus, emitEvent),
+      methodology: new MethodologyAgent(this.messageBus, emitEvent),
+      dataAnalyst: new DataAnalysisAgent(this.messageBus, emitEvent),
+      criticalReview: new CriticalReviewAgent(this.messageBus, emitEvent),
+      synthesis: new SynthesisAgent(this.messageBus, emitEvent),
+      writer: new ScientificWriterAgent(this.messageBus, emitEvent),
+      citation: new CitationManagerAgent(this.messageBus, emitEvent),
+    };
+  }
+
+  // ── Mode 1: SSE / Vercel ─────────────────────────────────
+  async startResearchSession(config: ResearchConfig): Promise<string> {
+    const sessionId = uuidv4();
+    this.pendingSessions.set(sessionId, config);
+    return sessionId;
+  }
+
+  async runResearchWithSSE(sessionId: string, write: SSEWriter): Promise<void> {
+    const config = this.pendingSessions.get(sessionId);
+    if (!config) {
+      write({
+        type: 'error',
+        sessionId,
+        data: { error: 'Session not found. POST /api/research/start first.' },
+        timestamp: new Date(),
+      });
+      return;
+    }
+    this.pendingSessions.delete(sessionId);
+
+    const emit: SSEWriter = (event) => {
+      write({ ...event, sessionId });
+      this.emit('stream', { ...event, sessionId });
+    };
+
+    const session = this.createSession(sessionId, config);
+    this.sessions.set(sessionId, session);
+    await this.runPipeline(sessionId, config, session, emit);
+  }
+
+  // ── Mode 2: Express + WebSocket (local dev) ──────────────
   async startResearch(config: ResearchConfig): Promise<string> {
     const sessionId = uuidv4();
 
-    const session: ResearchSession = {
+    const emit: SSEWriter = (event) => {
+      this.emit('stream', { ...event, sessionId });
+    };
+
+    const session = this.createSession(sessionId, config);
+    this.sessions.set(sessionId, session);
+
+    this.runPipeline(sessionId, config, session, emit).catch((err) => {
+      emit({ type: 'error', sessionId, data: { error: err.message }, timestamp: new Date() });
+    });
+
+    return sessionId;
+  }
+
+  // ── Core Pipeline ─────────────────────────────────────────
+  private createSession(sessionId: string, config: ResearchConfig): ResearchSession {
+    return {
       id: sessionId,
       topic: config.topic,
       researchQuestion: config.researchQuestion,
@@ -87,320 +127,180 @@ export class ResearchPipeline extends EventEmitter {
         qualityScore: 0,
       },
     };
-
-    this.sessions.set(sessionId, session);
-
-    // Start the pipeline asynchronously
-    this.runPipeline(sessionId, config, session).catch((err) => {
-      this.emitSessionEvent(sessionId, 'error', { error: err.message });
-    });
-
-    return sessionId;
   }
 
   private async runPipeline(
     sessionId: string,
     config: ResearchConfig,
-    session: ResearchSession
+    session: ResearchSession,
+    emit: SSEWriter
   ): Promise<void> {
-    const emit = (phase: ResearchPhase, data: Record<string, unknown>) => {
-      session.phase = phase;
-      this.emitSessionEvent(sessionId, 'phase_change', { phase, ...data });
+    const agents = this.makeAgents(emit);
+
+    const phase = (p: ResearchPhase, message: string) => {
+      session.phase = p;
+      emit({ type: 'phase_change', sessionId, data: { phase: p, message }, timestamp: new Date() });
     };
 
+    const progress = (percentage: number, message: string) => {
+      emit({ type: 'progress', sessionId, data: { percentage, message }, timestamp: new Date() });
+    };
+
+    const ctx = this.buildContext(config, session);
+
     try {
-      // ==========================================
-      // PHASE 1: INITIALIZATION & STRATEGY
-      // ==========================================
-      emit('initialization', { message: 'Research Director planning strategy...' });
+      // Phase 1: Strategy
+      phase('initialization', 'Research Director planning strategy...');
+      const { tasks } = await agents.director.createResearchPlan(config);
+      progress(10, 'Research strategy established');
 
-      const sessionContext = this.buildSessionContext(config, session);
-      const { strategy, tasks } = await this.director.createResearchPlan(config);
+      // Phase 2: Literature Review
+      phase('literature_review', 'Searching academic databases...');
+      const litResult = await agents.literature.executeTask(
+        this.makeTask('literature_reviewer', tasks[0]), ctx
+      );
+      this.collect(session, litResult);
+      progress(25, 'Literature review complete');
 
-      this.emitSessionEvent(sessionId, 'progress', {
-        percentage: 10,
-        message: 'Research strategy established',
-        phase: 'initialization',
-      });
+      // Phase 3: Hypothesis
+      phase('hypothesis_formation', 'Generating research hypotheses...');
+      const hypResult = await agents.hypothesis.executeTask(
+        this.makeTask('hypothesis_generator', tasks[1]),
+        this.enrichCtx(ctx, litResult)
+      );
+      this.collect(session, hypResult);
+      progress(38, 'Hypotheses formulated');
 
-      // ==========================================
-      // PHASE 2: LITERATURE REVIEW
-      // ==========================================
-      emit('literature_review', { message: 'Literature reviewer searching databases...' });
+      // Phase 4: Methodology
+      phase('methodology_design', 'Designing research methodology...');
+      const methCtx = this.enrichCtx(ctx, litResult, hypResult);
+      const methResult = await agents.methodology.executeTask(
+        this.makeTask('methodology_expert', tasks[2]), methCtx
+      );
+      this.collect(session, methResult);
+      progress(50, 'Methodology designed');
 
-      const litTask = this.makeTask('literature_reviewer', tasks[0], sessionId);
-      const litResult = await this.literatureAgent.executeTask(litTask, sessionContext);
-      this.processResult(session, litResult);
+      // Phase 5: Data Analysis
+      phase('data_analysis', 'Running statistical analysis framework...');
+      const analysisCtx = this.enrichCtx(methCtx, methResult);
+      const analysisResult = await agents.dataAnalyst.executeTask(
+        this.makeTask('data_analyst', tasks[3]), analysisCtx
+      );
+      this.collect(session, analysisResult);
+      progress(62, 'Analysis complete');
 
-      this.emitSessionEvent(sessionId, 'progress', {
-        percentage: 25,
-        message: 'Literature review complete',
-        phase: 'literature_review',
-      });
+      // Phase 6: Critical Review
+      phase('critical_review', 'Peer reviewing all findings...');
+      const reviewResult = await agents.criticalReview.executeTask(
+        this.makeTask('critical_reviewer', tasks[4]),
+        this.enrichCtx(analysisCtx, analysisResult)
+      );
+      this.collect(session, reviewResult);
+      progress(73, 'Critical review complete');
 
-      // ==========================================
-      // PHASE 3: HYPOTHESIS GENERATION
-      // ==========================================
-      emit('hypothesis_formation', { message: 'Generating research hypotheses...' });
+      // Phase 7: Synthesis
+      phase('synthesis', 'Synthesizing all findings...');
+      const synthCtx = this.enrichCtx(analysisCtx, reviewResult);
+      const synthResult = await agents.synthesis.executeTask(
+        this.makeTask('synthesis_specialist', tasks[5]), synthCtx
+      );
+      this.collect(session, synthResult);
+      progress(82, 'Synthesis complete');
 
-      const hypContext = this.enrichContext(sessionContext, litResult);
-      const hypTask = this.makeTask('hypothesis_generator', tasks[1], sessionId);
-      const hypResult = await this.hypothesisAgent.executeTask(hypTask, hypContext);
-      this.processResult(session, hypResult);
-
-      this.emitSessionEvent(sessionId, 'progress', {
-        percentage: 38,
-        message: 'Hypotheses formulated',
-        phase: 'hypothesis_formation',
-      });
-
-      // ==========================================
-      // PHASE 4: METHODOLOGY DESIGN
-      // ==========================================
-      emit('methodology_design', { message: 'Designing research methodology...' });
-
-      const methContext = this.enrichContext(hypContext, hypResult);
-      const methTask = this.makeTask('methodology_expert', tasks[2], sessionId);
-      const methResult = await this.methodologyAgent.executeTask(methTask, methContext);
-      this.processResult(session, methResult);
-
-      this.emitSessionEvent(sessionId, 'progress', {
-        percentage: 50,
-        message: 'Methodology designed',
-        phase: 'methodology_design',
-      });
-
-      // ==========================================
-      // PHASE 5: DATA ANALYSIS (parallel with citations)
-      // ==========================================
-      emit('data_analysis', { message: 'Running statistical analysis framework...' });
-
-      const analysisContext = this.enrichContext(methContext, methResult);
-      const analysisTask = this.makeTask('data_analyst', tasks[3], sessionId);
-
-      // Run data analysis and citation start in parallel
-      const [analysisResult] = await Promise.all([
-        this.dataAnalystAgent.executeTask(analysisTask, analysisContext),
-      ]);
-      this.processResult(session, analysisResult);
-
-      this.emitSessionEvent(sessionId, 'progress', {
-        percentage: 62,
-        message: 'Data analysis framework complete',
-        phase: 'data_analysis',
-      });
-
-      // ==========================================
-      // PHASE 6: CRITICAL REVIEW
-      // ==========================================
-      emit('critical_review', { message: 'Critical reviewer evaluating research quality...' });
-
-      const reviewContext = this.enrichContext(analysisContext, analysisResult);
-      const reviewTask = this.makeTask('critical_reviewer', tasks[4], sessionId);
-      const reviewResult = await this.criticalReviewAgent.executeTask(reviewTask, reviewContext);
-      this.processResult(session, reviewResult);
-
-      this.emitSessionEvent(sessionId, 'progress', {
-        percentage: 73,
-        message: 'Critical review complete',
-        phase: 'critical_review',
-      });
-
-      // ==========================================
-      // PHASE 7: SYNTHESIS
-      // ==========================================
-      emit('synthesis', { message: 'Synthesizing all findings...' });
-
-      const synthContext = this.enrichContext(reviewContext, reviewResult);
-      const synthTask = this.makeTask('synthesis_specialist', tasks[5], sessionId);
-      const synthResult = await this.synthesisAgent.executeTask(synthTask, synthContext);
-      this.processResult(session, synthResult);
-
-      this.emitSessionEvent(sessionId, 'progress', {
-        percentage: 82,
-        message: 'Synthesis complete',
-        phase: 'synthesis',
-      });
-
-      // ==========================================
-      // PHASE 8: SCIENTIFIC WRITING (parallel with citations)
-      // ==========================================
-      emit('writing', { message: 'Writing comprehensive scientific paper...' });
-
-      const writeContext = this.enrichContext(synthContext, synthResult);
-      const writeTask = this.makeTask('scientific_writer', tasks[6], sessionId);
-      const citTask = this.makeTask('citation_manager', tasks[7], sessionId);
-
-      // Run writing and citation compilation in parallel
+      // Phase 8: Writing + Citations (parallel)
+      phase('writing', 'Writing paper & compiling references...');
+      const writeCtx = this.enrichCtx(synthCtx, synthResult);
       const [writeResult, citResult] = await Promise.all([
-        this.writerAgent.executeTask(writeTask, writeContext),
-        this.citationAgent.executeTask(citTask, writeContext),
+        agents.writer.executeTask(this.makeTask('scientific_writer', tasks[6]), writeCtx),
+        agents.citation.executeTask(this.makeTask('citation_manager', tasks[7]), writeCtx),
       ]);
+      this.collect(session, writeResult);
+      this.collect(session, citResult);
+      progress(93, 'Paper and citations ready');
 
-      this.processResult(session, writeResult);
-      this.processResult(session, citResult);
-
-      this.emitSessionEvent(sessionId, 'progress', {
-        percentage: 93,
-        message: 'Paper and citations complete',
-        phase: 'writing',
-      });
-
-      // ==========================================
-      // PHASE 9: FINAL ASSEMBLY
-      // ==========================================
-      emit('final_review', { message: 'Assembling final research package...' });
-
-      // Extract the paper from writer result
-      const paper = writeResult.data.paper as ResearchPaper | undefined;
-      if (paper) {
-        session.paper = paper;
-      }
-
-      // Extract citations from citation result
+      // Phase 9: Final assembly
+      phase('final_review', 'Assembling final research package...');
+      if (writeResult.data.paper) session.paper = writeResult.data.paper as ResearchPaper;
       if (citResult.data.citations) {
         session.citations = citResult.data.citations as typeof session.citations;
       }
 
-      // Calculate final metrics
-      session.metadata = this.calculateMetrics(session);
-
-      this.emitSessionEvent(sessionId, 'progress', {
-        percentage: 100,
-        message: 'Research complete!',
-        phase: 'completed',
-      });
-
-      // ==========================================
-      // PHASE 10: COMPLETED
-      // ==========================================
+      session.metadata = this.calcMetrics(session);
       session.phase = 'completed';
       session.endTime = new Date();
 
-      this.emitSessionEvent(sessionId, 'session_complete', {
-        sessionId,
-        session: this.serializeSession(session),
-        paper: session.paper,
-        findings: session.findings,
-        metrics: session.metadata,
-      });
+      progress(100, 'Research complete!');
 
-      if (session.paper) {
-        this.emitSessionEvent(sessionId, 'paper_ready', {
+      emit({
+        type: 'paper_ready',
+        sessionId,
+        data: {
           paper: session.paper,
           paperText: writeResult.data.paperText,
           bibliography: citResult.data.bibliography,
-        });
-      }
-    } catch (error) {
+        },
+        timestamp: new Date(),
+      });
+
+      emit({
+        type: 'session_complete',
+        sessionId,
+        data: {
+          findingsCount: session.findings.length,
+          metrics: session.metadata,
+          duration: session.endTime
+            ? Math.round((session.endTime.getTime() - session.startTime.getTime()) / 1000)
+            : 0,
+        },
+        timestamp: new Date(),
+      });
+    } catch (err) {
       session.phase = 'completed';
       session.endTime = new Date();
-      this.emitSessionEvent(sessionId, 'error', {
-        error: (error as Error).message,
-        stack: (error as Error).stack,
-      });
-      throw error;
+      throw err;
     }
   }
 
-  private makeTask(
-    role: AgentRole,
-    taskDef: Omit<ResearchTask, 'id' | 'result'>,
-    sessionId: string
-  ): ResearchTask {
-    return {
-      id: uuidv4(),
-      ...taskDef,
-      assignedTo: role,
-    };
+  private makeTask(role: AgentRole, taskDef: Omit<ResearchTask, 'id' | 'result'>): ResearchTask {
+    return { id: uuidv4(), ...taskDef, assignedTo: role };
   }
 
-  private buildSessionContext(config: ResearchConfig, session: ResearchSession): string {
-    return `
-## RESEARCH SESSION CONTEXT
-**Session ID:** ${session.id}
-**Research Topic:** ${config.topic}
-**Primary Research Question:** ${config.researchQuestion}
-**Scientific Domain:** ${config.domain}
-**Research Depth:** ${config.depth}
-
-**Research Objectives:**
+  private buildContext(config: ResearchConfig, session: ResearchSession): string {
+    return `## RESEARCH CONTEXT
+**Topic:** ${config.topic}
+**Research Question:** ${config.researchQuestion}
+**Domain:** ${config.domain}
+**Depth:** ${config.depth}
+**Objectives:**
 ${config.objectives.map((o, i) => `${i + 1}. ${o}`).join('\n')}
-
-${config.constraints && config.constraints.length > 0 ? `**Constraints:**\n${config.constraints.join('\n')}` : ''}
-
-**Session Started:** ${session.startTime.toISOString()}
-`;
+**Session:** ${session.id} | Started: ${session.startTime.toISOString()}`;
   }
 
-  private enrichContext(baseContext: string, result: TaskResult): string {
-    const findingsSummary = result.findings
-      .map((f) => `### ${f.title}\n${f.content.substring(0, 2000)}...\n`)
-      .join('\n');
-
-    return `${baseContext}
-
----
-
-## PRIOR FINDINGS (${result.agentRole})
-${findingsSummary}
-`;
+  private enrichCtx(base: string, ...results: TaskResult[]): string {
+    const summaries = results
+      .flatMap((r) => r.findings)
+      .map((f) => `### ${f.title}\n${f.content.substring(0, 1500)}...`)
+      .join('\n\n');
+    return `${base}\n\n---\n## PRIOR FINDINGS\n${summaries}`;
   }
 
-  private processResult(session: ResearchSession, result: TaskResult): void {
+  private collect(session: ResearchSession, result: TaskResult): void {
     session.findings.push(...result.findings);
     session.metadata.totalTokens += result.tokensUsed;
     session.metadata.totalThinkingTokens += result.thinkingTokens;
     session.metadata.totalAgentCalls++;
-    // Estimate cost: $5/1M input tokens, $25/1M output tokens (Opus 4.6)
     session.metadata.estimatedCost += (result.tokensUsed * 15) / 1_000_000;
   }
 
-  private calculateMetrics(session: ResearchSession): typeof session.metadata {
-    const avgConfidence =
+  private calcMetrics(session: ResearchSession): typeof session.metadata {
+    const avg =
       session.findings.length > 0
-        ? session.findings.reduce((sum, f) => sum + f.confidence, 0) / session.findings.length
+        ? session.findings.reduce((s, f) => s + f.confidence, 0) / session.findings.length
         : 0;
-
-    return {
-      ...session.metadata,
-      qualityScore: Math.round(avgConfidence * 100),
-    };
+    return { ...session.metadata, qualityScore: Math.round(avg * 100) };
   }
 
-  private emitSessionEvent(
-    sessionId: string,
-    type: StreamEvent['type'],
-    data: Record<string, unknown>
-  ): void {
-    const event: StreamEvent = {
-      type,
-      sessionId,
-      data,
-      timestamp: new Date(),
-    };
-    this.emit('stream', event);
-  }
-
-  private serializeSession(session: ResearchSession): Record<string, unknown> {
-    return {
-      id: session.id,
-      topic: session.topic,
-      researchQuestion: session.researchQuestion,
-      domain: session.domain,
-      phase: session.phase,
-      startTime: session.startTime,
-      endTime: session.endTime,
-      findingsCount: session.findings.length,
-      metadata: session.metadata,
-    };
-  }
-
-  getSession(sessionId: string): ResearchSession | undefined {
-    return this.sessions.get(sessionId);
-  }
-
-  getSessionFindings(sessionId: string) {
-    return this.sessions.get(sessionId)?.findings || [];
+  getSession(id: string): ResearchSession | undefined {
+    return this.sessions.get(id);
   }
 }

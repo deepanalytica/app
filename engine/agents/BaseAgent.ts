@@ -46,9 +46,12 @@ export abstract class BaseAgent {
     this.client = new Anthropic({
       apiKey: process.env.ANTHROPIC_API_KEY,
     });
+    // Default: 12000 tokens balances quality vs. speed (~25-40s per agent)
+    // Vercel Pro limit: 300s total → 9 agents × ~25s = ~225s (within limit)
+    // To maximize quality: increase to 24000 (but may approach 300s timeout)
     this.config = {
-      model: 'claude-opus-4-6',
-      maxTokens: 32000,
+      model: process.env.RESEARCH_MODEL || 'claude-opus-4-6',
+      maxTokens: parseInt(process.env.RESEARCH_MAX_TOKENS || '12000', 10),
       ...config,
     };
     this.messageBus = messageBus;
