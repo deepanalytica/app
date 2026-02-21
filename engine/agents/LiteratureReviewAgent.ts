@@ -49,8 +49,22 @@ export class LiteratureReviewAgent extends BaseAgent {
     const start = Date.now();
     this.updateStatus('working', 'Conducting systematic literature review');
 
+    // Compute current date so Claude knows the upper bound for "recent papers"
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentDateStr = now.toISOString().split('T')[0]; // e.g. "2026-02-21"
+    const recentYearFrom = currentYear - 5;                 // e.g. 2021 for a 5-year window
+
     const prompt = `
 # Systematic Literature Review
+
+**TODAY'S DATE: ${currentDateStr}**
+**CURRENT YEAR: ${currentYear}**
+
+When using search tools:
+- For RECENT papers (last 5 years): set year_from=${recentYearFrom}, year_to=${currentYear}
+- For SEMINAL works (no date restriction): omit year_from and year_to
+- Never retrieve papers beyond year ${currentYear} — they do not exist yet
 
 ## Research Context
 ${sessionContext}
@@ -63,10 +77,10 @@ ${task.description}
 Conduct a comprehensive systematic literature review following PRISMA guidelines. Structure your review as follows:
 
 ### 1. SEARCH STRATEGY
-- Databases to search: PubMed, Web of Science, Scopus, Google Scholar, arXiv, SSRN
+- Databases searched: Semantic Scholar, arXiv, CrossRef (via real-time API calls)
 - Search terms and Boolean operators used
 - Inclusion/exclusion criteria
-- Time range and language filters
+- Time range: seminal works (all years) + recent papers (${recentYearFrom}–${currentYear})
 
 ### 2. SEMINAL WORKS (5-10 papers)
 For each foundational paper, provide:
@@ -77,7 +91,7 @@ For each foundational paper, provide:
 - Limitations acknowledged
 - Citation count (approximate)
 
-### 3. RECENT HIGH-IMPACT RESEARCH (10-15 papers, last 5 years)
+### 3. RECENT HIGH-IMPACT RESEARCH (10-15 papers, ${recentYearFrom}–${currentYear})
 For each paper:
 - Full citation
 - How it advances the field
@@ -109,7 +123,10 @@ For each paper:
 ### 8. SYNTHESIS NARRATIVE
 A 2-3 paragraph synthesis of what the literature collectively tells us about the research question.
 
-Be specific, cite real or highly plausible papers, and provide genuine scholarly insight.
+IMPORTANT: All papers returned by the search tools are REAL papers retrieved live from academic databases.
+Cite them accurately using the exact metadata (title, authors, year, DOI) returned by the tools.
+Do NOT invent or guess any citations — only use papers confirmed by the search tools.
+Today is ${currentDateStr}; do not cite papers with a year later than ${currentYear}.
 `;
 
     // Use real academic search tools if enabled (via environment variable or config)

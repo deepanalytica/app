@@ -412,7 +412,8 @@ export abstract class BaseAgent {
         text: finalText,
         thinking: finalThinking,
         tokensUsed: totalTokens,
-        thinkingTokens: 0,
+        // Thinking is not enabled in tool rounds; estimate from any thinking text captured
+        thinkingTokens: finalThinking.length > 0 ? Math.floor(finalThinking.length / 4) : 0,
         toolCallCount,
       };
     } catch (error) {

@@ -17,13 +17,22 @@ const SEARCH_FIELDS =
 // ─── Semantic Scholar ──────────────────────────────────────
 export async function searchSemanticScholar(
   query: string,
-  limit = 10
+  limit = 10,
+  yearFrom?: number,
+  yearTo?: number
 ): Promise<AcademicSearchResult[]> {
   try {
     const url = new URL(`${SEMANTIC_SCHOLAR_BASE}/paper/search`);
     url.searchParams.set('query', query);
     url.searchParams.set('fields', SEARCH_FIELDS);
     url.searchParams.set('limit', String(Math.min(limit, 100)));
+
+    // Semantic Scholar supports year range filtering via ?year=YYYY-YYYY
+    if (yearFrom || yearTo) {
+      const from = yearFrom ?? 1900;
+      const to = yearTo ?? new Date().getFullYear();
+      url.searchParams.set('year', `${from}-${to}`);
+    }
 
     const res = await fetch(url.toString(), {
       headers: { 'User-Agent': 'MultiAgentResearchSystem/1.0' },
@@ -77,11 +86,22 @@ export async function searchSemanticScholar(
 // ─── arXiv ─────────────────────────────────────────────────
 export async function searchArxiv(
   query: string,
-  limit = 10
+  limit = 10,
+  yearFrom?: number,
+  yearTo?: number
 ): Promise<AcademicSearchResult[]> {
   try {
     const url = new URL(ARXIV_BASE);
-    url.searchParams.set('search_query', `all:${query}`);
+
+    // arXiv supports date filtering via submittedDate:[YYYYMMDD TO YYYYMMDD]
+    let fullQuery = `all:${query}`;
+    if (yearFrom || yearTo) {
+      const from = yearFrom ? `${yearFrom}0101` : '19000101';
+      const to = yearTo ? `${yearTo}1231` : `${new Date().getFullYear()}1231`;
+      fullQuery += ` AND submittedDate:[${from}000000 TO ${to}235959]`;
+    }
+
+    url.searchParams.set('search_query', fullQuery);
     url.searchParams.set('max_results', String(Math.min(limit, 50)));
     url.searchParams.set('sortBy', 'relevance');
 
@@ -205,11 +225,13 @@ export async function verifyDoi(doi: string): Promise<AcademicSearchResult | nul
 // ─── Combined Search ───────────────────────────────────────
 export async function searchAllDatabases(
   query: string,
-  limit = 10
+  limit = 10,
+  yearFrom?: number,
+  yearTo?: number
 ): Promise<AcademicSearchResult[]> {
   const [ssResults, arxivResults] = await Promise.all([
-    searchSemanticScholar(query, limit),
-    searchArxiv(query, Math.ceil(limit / 2)),
+    searchSemanticScholar(query, limit, yearFrom, yearTo),
+    searchArxiv(query, Math.ceil(limit / 2), yearFrom, yearTo),
   ]);
 
   // Merge and deduplicate by DOI
@@ -257,13 +279,13 @@ export const academicSearchTools: Anthropic.Tool[] = [
   {
     name: 'search_academic_papers',
     description:
-      'Search real academic databases (Semantic Scholar + arXiv) for peer-reviewed papers. Returns actual papers with verified DOIs and citation counts.',
+      'Search real academic databases (Semantic Scholar + arXiv) for peer-reviewed papers. Returns actual papers with verified DOIs and citation counts. Use year_from and year_to to restrict results to a specific publication period.',
     input_schema: {
       type: 'object' as const,
       properties: {
         query: {
           type: 'string',
-          description: 'Search query (e.g. "deep learning image classification 2023")',
+          description: 'Search query (e.g. "deep learning image classification")',
         },
         max_results: {
           type: 'number',
@@ -273,6 +295,14 @@ export const academicSearchTools: Anthropic.Tool[] = [
           type: 'string',
           enum: ['semantic_scholar', 'arxiv', 'both'],
           description: 'Which database to search (default "both")',
+        },
+        year_from: {
+          type: 'number',
+          description: 'Only return papers published from this year onwards (e.g. 2020). Omit for all years.',
+        },
+        year_to: {
+          type: 'number',
+          description: 'Only return papers published up to this year inclusive (e.g. 2026). Defaults to current year.',
         },
       },
       required: ['query'],
@@ -296,7 +326,7 @@ export const academicSearchTools: Anthropic.Tool[] = [
   {
     name: 'search_by_topic',
     description:
-      'Search multiple related queries to build a comprehensive literature base. Use when you need to cover different aspects of the research topic.',
+      'Search multiple related queries to build a comprehensive literature base. Use when you need to cover different aspects of the research topic. Apply year filters to restrict the timeframe.',
     input_schema: {
       type: 'object' as const,
       properties: {
@@ -308,6 +338,14 @@ export const academicSearchTools: Anthropic.Tool[] = [
         results_per_query: {
           type: 'number',
           description: 'Results per query (default 5)',
+        },
+        year_from: {
+          type: 'number',
+          description: 'Only return papers published from this year onwards (e.g. 2020).',
+        },
+        year_to: {
+          type: 'number',
+          description: 'Only return papers published up to this year inclusive (e.g. 2026).',
         },
       },
       required: ['queries'],
@@ -326,15 +364,21 @@ export async function executeAcademicSearchTool(
         const query = toolInput.query as string;
         const limit = (toolInput.max_results as number) || 10;
         const source = (toolInput.source as string) || 'both';
+        const yearFrom = toolInput.year_from as number | undefined;
+        const yearTo = toolInput.year_to as number | undefined;
 
         let results: AcademicSearchResult[] = [];
         if (source === 'semantic_scholar') {
-          results = await searchSemanticScholar(query, limit);
+          results = await searchSemanticScholar(query, limit, yearFrom, yearTo);
         } else if (source === 'arxiv') {
-          results = await searchArxiv(query, limit);
+          results = await searchArxiv(query, limit, yearFrom, yearTo);
         } else {
-          results = await searchAllDatabases(query, limit);
+          results = await searchAllDatabases(query, limit, yearFrom, yearTo);
         }
+
+        // Post-filter as safety net in case the API ignored the year params
+        if (yearFrom) results = results.filter((r) => r.year >= yearFrom);
+        if (yearTo) results = results.filter((r) => r.year <= yearTo);
 
         if (results.length === 0) {
           return JSON.stringify({ status: 'no_results', query, message: 'No papers found for this query. Try different search terms.' });
@@ -381,9 +425,11 @@ export async function executeAcademicSearchTool(
       case 'search_by_topic': {
         const queries = (toolInput.queries as string[]).slice(0, 5);
         const limit = (toolInput.results_per_query as number) || 5;
+        const yearFrom = toolInput.year_from as number | undefined;
+        const yearTo = toolInput.year_to as number | undefined;
 
         const allResults = await Promise.all(
-          queries.map((q) => searchAllDatabases(q, limit))
+          queries.map((q) => searchAllDatabases(q, limit, yearFrom, yearTo))
         );
 
         const seen = new Set<string>();
@@ -398,11 +444,15 @@ export async function executeAcademicSearchTool(
           }
         }
 
+        // Post-filter as safety net
+        const filteredMerged = merged
+          .filter((r) => (!yearFrom || r.year >= yearFrom) && (!yearTo || r.year <= yearTo));
+
         return JSON.stringify({
           status: 'success',
           queries,
-          total: merged.length,
-          papers: merged
+          total: filteredMerged.length,
+          papers: filteredMerged
             .sort((a, b) => (b.citationCount ?? 0) - (a.citationCount ?? 0))
             .slice(0, 30)
             .map((r) => ({
