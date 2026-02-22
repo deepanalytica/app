@@ -10,9 +10,24 @@
         </div>
       </div>
 
-      <div class="header-status" v-if="sessionId">
+      <!-- Main Nav Tabs -->
+      <nav class="main-nav">
+        <button
+          v-for="tab in mainTabs"
+          :key="tab.key"
+          class="nav-tab"
+          :class="{ active: mainTab === tab.key }"
+          @click="mainTab = tab.key"
+        >
+          <span class="nav-icon">{{ tab.icon }}</span>
+          {{ tab.label }}
+          <span v-if="tab.badge" class="nav-badge">{{ tab.badge }}</span>
+        </button>
+      </nav>
+
+      <div class="header-status" v-if="sessionId && mainTab === 'research'">
         <div class="connection-dot" :class="{ connected: isConnected }"></div>
-        <span class="session-id">Session: {{ sessionId.substring(0, 8) }}...</span>
+        <span class="session-id">{{ sessionId.substring(0, 8) }}...</span>
       </div>
 
       <div class="header-actions">
@@ -20,7 +35,7 @@
           <span class="model-dot"></span>
           claude-opus-4-6 · Adaptive Thinking
         </div>
-        <button v-if="isComplete || error" @click="reset" class="btn-reset">
+        <button v-if="(isComplete || error) && mainTab === 'research'" @click="reset" class="btn-reset">
           🔄 New Research
         </button>
       </div>
@@ -41,9 +56,20 @@
     </div>
 
     <!-- ── Main Layout ── -->
-    <main class="app-main">
-      <!-- LEFT: Research Config or Form -->
-      <aside class="sidebar sidebar-left">
+    <main class="app-main" :class="{ 'full-panel': mainTab !== 'research' }">
+      <!-- ── Full-width panels for non-research tabs ── -->
+      <div v-if="mainTab === 'memory'" class="full-panel-content">
+        <MemoryBrowser />
+      </div>
+      <div v-else-if="mainTab === 'history'" class="full-panel-content">
+        <SessionHistory />
+      </div>
+      <div v-else-if="mainTab === 'intelligence'" class="full-panel-content">
+        <SelfImprovementPanel />
+      </div>
+
+      <!-- LEFT: Research Config or Form (only in research tab) -->
+      <aside class="sidebar sidebar-left" v-if="mainTab === 'research'">
         <div class="sidebar-inner">
           <ResearchForm
             v-if="!isResearching && !isComplete"
@@ -93,8 +119,8 @@
         </div>
       </aside>
 
-      <!-- CENTER: Agent Dashboard -->
-      <section class="content-center">
+      <!-- CENTER: Agent Dashboard (only in research tab) -->
+      <section class="content-center" v-if="mainTab === 'research'">
         <div class="agents-grid-header">
           <h2>Research Team</h2>
           <div class="view-toggle">
@@ -154,8 +180,8 @@
         </div>
       </section>
 
-      <!-- RIGHT: Findings + Paper Viewer -->
-      <aside class="sidebar sidebar-right">
+      <!-- RIGHT: Findings + Paper Viewer (only in research tab) -->
+      <aside class="sidebar sidebar-right" v-if="mainTab === 'research'">
         <div class="sidebar-tabs">
           <button
             @click="rightPanel = 'findings'"
@@ -183,11 +209,14 @@
 </template>
 
 <script setup>
-import { ref, nextTick, watch } from 'vue'
+import { ref, computed, nextTick, watch } from 'vue'
 import AgentCard from './components/AgentCard.vue'
 import ResearchForm from './components/ResearchForm.vue'
 import FindingsPanel from './components/FindingsPanel.vue'
 import PaperViewer from './components/PaperViewer.vue'
+import MemoryBrowser from './components/MemoryBrowser.vue'
+import SessionHistory from './components/SessionHistory.vue'
+import SelfImprovementPanel from './components/SelfImprovementPanel.vue'
 import { useResearch } from './composables/useResearch'
 
 const {
@@ -198,6 +227,24 @@ const {
   startResearch, reset,
 } = useResearch()
 
+// Main navigation tab
+const mainTab = ref('research')
+
+// Track pending improvement proposals from stream events
+const pendingProposalCount = ref(0)
+
+const mainTabs = computed(() => [
+  { key: 'research', label: 'Research', icon: '🔬' },
+  { key: 'history', label: 'History', icon: '📋' },
+  { key: 'memory', label: 'Memory', icon: '🧠' },
+  {
+    key: 'intelligence',
+    label: 'Intelligence',
+    icon: '⚡',
+    badge: pendingProposalCount.value > 0 ? pendingProposalCount.value : null,
+  },
+])
+
 const centerView = ref('agents')
 const rightPanel = ref('findings')
 const logRef = ref(null)
@@ -207,6 +254,7 @@ function handleStartResearch(config) {
   currentTopic.value = config.topic
   startResearch(config)
   centerView.value = 'agents'
+  mainTab.value = 'research'
 }
 
 function formatTokens(n) {
@@ -237,6 +285,19 @@ function logAgentLabel(agent) {
 // Auto-switch to paper tab when paper is ready
 watch(paper, (val) => {
   if (val) rightPanel.value = 'paper'
+})
+
+// Track self-improvement proposals from stream events
+watch(streamLog, (log) => {
+  const latest = log[log.length - 1]
+  if (latest?.type === 'finding' && latest?.data?.type === 'improvement_proposals') {
+    pendingProposalCount.value += (latest.data.count || 0)
+  }
+}, { deep: true })
+
+// Reset badge when visiting intelligence tab
+watch(mainTab, (tab) => {
+  if (tab === 'intelligence') pendingProposalCount.value = 0
 })
 </script>
 
@@ -286,13 +347,77 @@ body {
 .app-header {
   display: flex;
   align-items: center;
-  padding: 0 20px;
+  padding: 0 16px;
   height: 56px;
   background: var(--surface);
   border-bottom: 1px solid var(--border);
-  gap: 20px;
+  gap: 16px;
   flex-shrink: 0;
   z-index: 10;
+}
+
+/* ── Main Nav ── */
+.main-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex: 1;
+  justify-content: center;
+}
+
+.nav-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 16px;
+  background: none;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s;
+  position: relative;
+}
+
+.nav-tab:hover {
+  color: var(--text);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.nav-tab.active {
+  color: var(--accent);
+  background: rgba(102, 126, 234, 0.12);
+}
+
+.nav-icon { font-size: 15px; }
+
+.nav-badge {
+  position: absolute;
+  top: 3px;
+  right: 6px;
+  background: var(--error);
+  color: white;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 1px 4px;
+  border-radius: 8px;
+  min-width: 16px;
+  text-align: center;
+}
+
+/* ── Full-panel mode ── */
+.app-main.full-panel {
+  display: flex;
+}
+
+.full-panel-content {
+  flex: 1;
+  padding: 20px 24px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
 .header-brand {

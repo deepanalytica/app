@@ -16,6 +16,9 @@ import { CriticalReviewAgent } from '../agents/CriticalReviewAgent';
 import { SynthesisAgent } from '../agents/SynthesisAgent';
 import { ScientificWriterAgent } from '../agents/ScientificWriterAgent';
 import { CitationManagerAgent } from '../agents/CitationManagerAgent';
+import { memoryStore } from '../memory/MemoryStore';
+import { knowledgeSkillEngine } from '../memory/KnowledgeSkillEngine';
+import { selfImprovementAgent } from '../self_improvement/SelfImprovementAgent';
 import type {
   ResearchConfig,
   ResearchSession,
@@ -26,6 +29,7 @@ import type {
   AgentRole,
   ResearchPaper,
   InteractiveFeedback,
+  PerformanceSnapshot,
 } from '../models/types';
 
 export interface StartResult {
@@ -106,6 +110,18 @@ export class ResearchPipeline extends EventEmitter {
     const emit: SSEWriter = (event) => {
       this.emit('stream', { ...event, sessionId });
     };
+
+    // Inject prior knowledge from memory before session starts
+    const priorKnowledge = await knowledgeSkillEngine.buildKnowledgeContext(config).catch(() => '');
+    if (priorKnowledge) {
+      config = { ...config, _priorKnowledge: priorKnowledge } as ResearchConfig & { _priorKnowledge: string };
+      emit({
+        type: 'progress',
+        sessionId,
+        data: { percentage: 2, message: 'Prior knowledge loaded from memory library' },
+        timestamp: new Date(),
+      });
+    }
 
     const session = this.createSession(sessionId, config);
     this.sessions.set(sessionId, session);
@@ -411,13 +427,119 @@ export class ResearchPipeline extends EventEmitter {
         timestamp: new Date(),
       });
 
+      // ── MEMORY & SELF-IMPROVEMENT (async, non-blocking) ────
+      this.runPostSessionTasks(session, emit).catch(err => {
+        console.error('[Pipeline] Post-session tasks error:', err);
+      });
+
       // Cleanup agent instances (free memory)
       this.agentInstances.delete(sessionId);
     } catch (err) {
       session.phase = 'completed';
       session.endTime = new Date();
+      // Save partial session on error
+      try { memoryStore.saveSession(session); } catch (_) { /* ignore */ }
       this.agentInstances.delete(sessionId);
       throw err;
+    }
+  }
+
+  // ── Post-session: persist + extract skill + analyze ───────
+  private async runPostSessionTasks(session: ResearchSession, emit: SSEWriter): Promise<void> {
+    const sessionId = session.id;
+
+    // 1. Persist session to disk
+    try {
+      memoryStore.saveSession(session);
+      console.log(`[Pipeline] Session persisted: ${sessionId}`);
+    } catch (err) {
+      console.error('[Pipeline] Persist error:', err);
+    }
+
+    // 2. Save performance snapshot
+    try {
+      const snapshot: PerformanceSnapshot = {
+        sessionId,
+        topic: session.topic,
+        domain: session.domain,
+        timestamp: new Date().toISOString(),
+        agentMetrics: Object.fromEntries(
+          [...session.agents.entries()].map(([role, state]) => [role, {
+            qualityScore: state.metrics.qualityScore,
+            tokensUsed: state.metrics.tokensUsed,
+            thinkingTokens: state.metrics.thinkingTokens,
+            duration: state.metrics.avgResponseTime,
+          }])
+        ),
+        overallQuality: session.metadata.qualityScore,
+        findingsCount: session.findings.length,
+        citationsCount: session.citations.length,
+        totalTokens: session.metadata.totalTokens,
+        estimatedCost: session.metadata.estimatedCost,
+        durationSeconds: session.endTime
+          ? Math.round((session.endTime.getTime() - session.startTime.getTime()) / 1000)
+          : 0,
+      };
+      memoryStore.savePerformanceSnapshot(snapshot);
+    } catch (err) {
+      console.error('[Pipeline] Snapshot error:', err);
+    }
+
+    // 3. Extract knowledge skill
+    try {
+      emit({
+        type: 'progress',
+        sessionId,
+        data: { percentage: 100, message: 'Extracting knowledge for memory library...' },
+        timestamp: new Date(),
+      });
+      const skill = await knowledgeSkillEngine.extractFromSession(session);
+      emit({
+        type: 'finding',
+        sessionId,
+        data: {
+          type: 'knowledge_skill_created',
+          skillId: skill.id,
+          title: skill.title,
+          domain: skill.domain,
+          message: `Knowledge skill "${skill.title}" added to memory library`,
+        },
+        timestamp: new Date(),
+      });
+    } catch (err) {
+      console.error('[Pipeline] Knowledge extraction error:', err);
+    }
+
+    // 4. Self-improvement analysis
+    try {
+      emit({
+        type: 'progress',
+        sessionId,
+        data: { percentage: 100, message: 'Analyzing session for system improvements...' },
+        timestamp: new Date(),
+      });
+      const proposals = await selfImprovementAgent.analyzeSession(session);
+      if (proposals.length > 0) {
+        emit({
+          type: 'finding',
+          sessionId,
+          data: {
+            type: 'improvement_proposals',
+            count: proposals.length,
+            proposals: proposals.map(p => ({
+              id: p.id,
+              title: p.title,
+              category: p.category,
+              priority: p.priority,
+              estimatedImpact: p.estimatedImpact,
+            })),
+            message: `${proposals.length} improvement proposal(s) ready for review in System Intelligence`,
+          },
+          timestamp: new Date(),
+        });
+      }
+    } catch (err) {
+      console.error('[Pipeline] Self-improvement error:', err);
     }
   }
 
@@ -426,6 +548,7 @@ export class ResearchPipeline extends EventEmitter {
   }
 
   private buildContext(config: ResearchConfig, session: ResearchSession): string {
+    const priorKnowledge = (config as ResearchConfig & { _priorKnowledge?: string })._priorKnowledge || '';
     return `## RESEARCH CONTEXT
 **Topic:** ${config.topic}
 **Research Question:** ${config.researchQuestion}
@@ -433,7 +556,8 @@ export class ResearchPipeline extends EventEmitter {
 **Depth:** ${config.depth}
 **Objectives:**
 ${config.objectives.map((o, i) => `${i + 1}. ${o}`).join('\n')}
-**Session:** ${session.id} | Started: ${session.startTime.toISOString()}`;
+**Session:** ${session.id} | Started: ${session.startTime.toISOString()}
+${priorKnowledge ? `\n${priorKnowledge}` : ''}`;
   }
 
   private enrichCtx(base: string, ...results: TaskResult[]): string {

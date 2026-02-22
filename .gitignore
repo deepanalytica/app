@@ -27,3 +27,10 @@ dist-ssr
 .env
 .env.local
 .env.*.local
+
+# Persistent memory data (JSON files with research sessions, skills, proposals)
+# Do NOT ignore this directory — it contains accumulated knowledge.
+# Uncomment below to exclude from git if data volume becomes large:
+# data/sessions/*.json
+# data/skills/*.json
+data/*.tmp.*
