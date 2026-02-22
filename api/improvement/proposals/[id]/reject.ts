@@ -6,7 +6,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
 
   try {
-    const { id } = req.params as { id: string }
+    const { id } = req.query as { id: string }
     const { reason = '' } = req.body || {}
     const proposal = memoryStore.rejectProposal(id, reason)
     if (!proposal) return res.status(404).json({ error: 'Proposal not found' })

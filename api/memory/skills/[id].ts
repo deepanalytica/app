@@ -6,7 +6,7 @@ export default function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method === 'OPTIONS') return res.status(200).end()
 
   try {
-    const { id } = req.params as { id: string }
+    const { id } = req.query as { id: string }
     const skill = memoryStore.getSkill(id)
     if (!skill) return res.status(404).json({ error: 'Skill not found' })
 
