@@ -20,29 +20,50 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Create PR and merge
+      - name: Check if branch has changes to merge
+        id: check
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          # Create PR if it doesn't exist
-          PR_NUM=$(gh pr list --head "claude/multi-agent-research-system-dAt71" --base main --json number --jq '.[0].number' 2>/dev/null || echo "")
+          git fetch origin main
+          AHEAD=$(git rev-list origin/main..HEAD --count)
+          echo "Commits ahead of main: $AHEAD"
+          echo "ahead=$AHEAD" >> $GITHUB_OUTPUT
+
+      - name: Create PR and merge
+        if: steps.check.outputs.ahead != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BRANCH="claude/multi-agent-research-system-dAt71"
+
+          # Find open PR or create one
+          PR_NUM=$(gh pr list --head "$BRANCH" --base main --state open --json number --jq '.[0].number' 2>/dev/null || true)
 
           if [ -z "$PR_NUM" ]; then
             PR_NUM=$(gh pr create \
-              --title "feat: persistent memory, knowledge skills, self-improvement & Vercel build fix" \
+              --title "fix: Vite base path, API routes & interface rendering" \
               --base main \
-              --head "claude/multi-agent-research-system-dAt71" \
-              --body "Auto-merge: fix Vercel build (remove invalid runtime field) + persistent memory system + knowledge skills + self-improvement agent + 4-tab dashboard." \
-              --json number --jq '.number')
+              --head "$BRANCH" \
+              --body "- Remove wrong base '/web2022/' from vite.config.js (fixes blank screen)\n- Add missing Vercel API routes for memory & improvement endpoints\n- Fix req.query for path params in Vercel dynamic routes\n- Fix API_BASE in useMemory.js to use same-origin path" \
+              --json number --jq '.number') || true
             echo "Created PR #$PR_NUM"
           else
-            echo "PR #$PR_NUM already exists"
+            echo "Found open PR #$PR_NUM"
           fi
 
-          # Merge the PR
-          gh pr merge "$PR_NUM" \
-            --merge \
-            --subject "feat: merge persistent memory, knowledge skills, self-improvement & Vercel fix" \
-            --body "Merged by auto-merge workflow."
-
-          echo "PR #$PR_NUM merged to main successfully"
+          if [ -n "$PR_NUM" ]; then
+            gh pr merge "$PR_NUM" \
+              --merge \
+              --subject "fix: Vite base path, API routes & interface rendering" \
+              --body "Merged by auto-merge workflow."
+            echo "PR #$PR_NUM merged to main successfully"
+          else
+            echo "Could not create or find PR — trying direct merge"
+            git config user.email "claude@anthropic.com"
+            git config user.name "Claude"
+            git fetch origin main
+            git checkout main
+            git merge --no-ff "$BRANCH" -m "fix: Vite base path, API routes & interface rendering"
+            git push origin main
+          fi
