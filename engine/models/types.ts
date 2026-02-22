@@ -396,3 +396,147 @@ export interface AcademicSearchResult {
   source: 'semantic_scholar' | 'arxiv' | 'crossref';
   paperId?: string; // Semantic Scholar ID
 }
+
+// ════════════════════════════════════════════════════════════
+// PERSISTENT MEMORY & KNOWLEDGE SYSTEM
+// ════════════════════════════════════════════════════════════
+
+// ─── Knowledge Skills ──────────────────────────────────────
+// Structured knowledge units extracted from completed sessions.
+// Each skill represents accumulated knowledge on a specific topic.
+export interface KnowledgeSkill {
+  id: string;
+  domain: string;
+  topic: string;
+  title: string;
+  summary: string;                     // 2–4 sentence synthesis
+  keyFindings: string[];               // Top 5–10 concrete findings
+  validatedHypotheses: string[];       // Hypotheses that survived critical review
+  methodologies: string[];             // Proven methodologies for this domain
+  keyTerms: string[];                  // Domain-specific terminology
+  topCitations: Citation[];            // Most relevant verified references
+  confidenceScore: number;             // 0–1, average quality from session
+  qualityScore: number;                // 0–100, session quality
+  usageCount: number;                  // How many times injected into new sessions
+  tags: string[];
+  sourceSessionIds: string[];          // Session IDs that contributed
+  relatedSkillIds: string[];           // Connected skills (knowledge graph)
+  createdAt: string;                   // ISO date string
+  updatedAt: string;
+  version: number;                     // Increments with each update
+}
+
+// ─── Session Summary (lightweight, for listing) ─────────────
+export interface SessionSummary {
+  id: string;
+  topic: string;
+  domain: string;
+  researchQuestion: string;
+  phase: string;
+  startTime: string;
+  endTime?: string;
+  qualityScore: number;
+  totalTokens: number;
+  estimatedCost: number;
+  findingsCount: number;
+  citationsCount: number;
+  hasPaper: boolean;
+  skillExtracted: boolean;
+  skillId?: string;
+}
+
+// ─── Performance Snapshot ──────────────────────────────────
+// Captured at the end of each session for trend analysis.
+export interface PerformanceSnapshot {
+  sessionId: string;
+  topic: string;
+  domain: string;
+  timestamp: string;
+  agentMetrics: Record<string, {
+    qualityScore: number;
+    tokensUsed: number;
+    thinkingTokens: number;
+    duration: number;
+  }>;
+  overallQuality: number;
+  findingsCount: number;
+  citationsCount: number;
+  totalTokens: number;
+  estimatedCost: number;
+  durationSeconds: number;
+}
+
+// ─── Change Proposals (Self-Improvement) ───────────────────
+// Proposed by SelfImprovementAgent after each session.
+// NOTHING is applied without explicit user approval.
+export type ProposalCategory =
+  | 'prompt_improvement'    // Change system/task prompt of an agent
+  | 'pipeline_modification' // Reorder phases, add/remove agents
+  | 'tool_enhancement'      // Add new tools or improve existing
+  | 'knowledge_gap'         // Research area that needs more exploration
+  | 'quality_process';      // Changes to review/validation processes
+
+export type ProposalStatus = 'pending' | 'approved' | 'rejected' | 'applied';
+
+export interface ChangeProposal {
+  id: string;
+  category: ProposalCategory;
+  priority: 'critical' | 'high' | 'medium' | 'low';
+  title: string;
+  rationale: string;                   // Why this change is needed
+  observedProblem: string;             // What the agent detected was wrong
+  proposedChange: string;              // Exact description of the change
+  expectedImprovement: string;         // What will get better
+  affectedAgent?: AnyAgentRole;        // Which agent this affects
+  promptBefore?: string;               // Current prompt snippet (if prompt change)
+  promptAfter?: string;                // Proposed prompt snippet (if prompt change)
+  estimatedImpact: number;             // 0–100, estimated quality improvement
+  confidence: number;                  // 0–1, how confident the agent is
+  status: ProposalStatus;
+  sourceSessionId: string;             // Session that triggered this proposal
+  createdAt: string;
+  reviewedAt?: string;
+  rejectionReason?: string;
+  appliedAt?: string;
+  appliedCount: number;                // How many sessions used this
+  avgQualityBefore?: number;           // Quality avg before applying
+  avgQualityAfter?: number;            // Quality avg after applying
+}
+
+// ─── Prompt Overrides (Applied Improvements) ───────────────
+// Created from approved ChangeProposals.
+// BaseAgent checks these and uses improved prompts.
+export interface PromptOverride {
+  id: string;
+  proposalId: string;
+  agentRole: AnyAgentRole;
+  section: 'system_prompt' | 'task_instructions' | 'output_format';
+  originalText: string;
+  improvedText: string;
+  rationale: string;
+  appliedAt: string;
+  appliedCount: number;
+  avgQualityBefore: number;
+  avgQualityAfter: number;
+  active: boolean;
+}
+
+// ─── Memory Index (fast lookups) ───────────────────────────
+export interface MemoryIndex {
+  sessions: {
+    byDomain: Record<string, string[]>;          // domain → [sessionId]
+    byTopic: Record<string, string[]>;           // keyword → [sessionId]
+    all: SessionSummary[];                       // Ordered by date desc
+  };
+  skills: {
+    byDomain: Record<string, string[]>;          // domain → [skillId]
+    byTag: Record<string, string[]>;             // tag → [skillId]
+    all: Array<{ id: string; domain: string; topic: string; title: string; qualityScore: number; createdAt: string }>;
+  };
+  proposals: {
+    pending: string[];
+    approved: string[];
+    rejected: string[];
+  };
+  lastUpdated: string;
+}

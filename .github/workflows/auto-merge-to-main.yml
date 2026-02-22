@@ -1,0 +1,48 @@
+name: Auto-merge claude branch to main
+
+on:
+  push:
+    branches:
+      - 'claude/multi-agent-research-system-dAt71'
+
+jobs:
+  auto-merge:
+    name: Create PR and merge to main
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Create PR and merge
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Create PR if it doesn't exist
+          PR_NUM=$(gh pr list --head "claude/multi-agent-research-system-dAt71" --base main --json number --jq '.[0].number' 2>/dev/null || echo "")
+
+          if [ -z "$PR_NUM" ]; then
+            PR_NUM=$(gh pr create \
+              --title "feat: persistent memory, knowledge skills, self-improvement & Vercel build fix" \
+              --base main \
+              --head "claude/multi-agent-research-system-dAt71" \
+              --body "Auto-merge: fix Vercel build (remove invalid runtime field) + persistent memory system + knowledge skills + self-improvement agent + 4-tab dashboard." \
+              --json number --jq '.number')
+            echo "Created PR #$PR_NUM"
+          else
+            echo "PR #$PR_NUM already exists"
+          fi
+
+          # Merge the PR
+          gh pr merge "$PR_NUM" \
+            --merge \
+            --subject "feat: merge persistent memory, knowledge skills, self-improvement & Vercel fix" \
+            --body "Merged by auto-merge workflow."
+
+          echo "PR #$PR_NUM merged to main successfully"

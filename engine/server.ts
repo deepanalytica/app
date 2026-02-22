@@ -11,6 +11,8 @@ import { createServer } from 'http';
 import { ResearchPipeline } from './coordination/ResearchPipeline';
 import { CodeAnalysisPipeline } from './coordination/CodeAnalysisPipeline';
 import { exportPaper, codeReportToMarkdown } from './export/PaperExporter';
+import { memoryStore } from './memory/MemoryStore';
+import { selfImprovementAgent } from './self_improvement/SelfImprovementAgent';
 import type {
   ResearchConfig,
   StreamEvent,
@@ -153,7 +155,11 @@ app.get('/api/health', (_req, res) => {
       ],
       code: ['Code Reviewer', 'Architecture Analyst', 'Security Auditor', 'Documentation Generator'],
     },
-    features: ['real_time_streaming', 'interactive_control', 'code_analysis', 'export', 'github_input'],
+    features: [
+      'real_time_streaming', 'interactive_control', 'code_analysis',
+      'export', 'github_input', 'persistent_memory', 'knowledge_skills', 'self_improvement',
+    ],
+    memory: memoryStore.getSystemStats(),
     timestamp: new Date().toISOString(),
   });
 });
@@ -509,6 +515,152 @@ app.get('/api/code/:sessionId/findings', (req, res) => {
   if (role) findings = findings.filter(f => f.agentRole === role);
 
   res.json({ findings, total: findings.length });
+});
+
+// ════════════════════════════════════════════════════════════
+// MEMORY — Knowledge Skills & Session History
+// ════════════════════════════════════════════════════════════
+
+// List knowledge skills
+app.get('/api/memory/skills', (req, res) => {
+  const { domain, tags, q, limit } = req.query;
+  const lim = parseInt(limit as string) || 50;
+
+  let skills;
+  if (q) {
+    skills = memoryStore.searchSkills(q as string);
+  } else {
+    const tagList = tags ? String(tags).split(',') : undefined;
+    skills = memoryStore.listSkills(domain as string | undefined, tagList, lim);
+  }
+
+  res.json({ skills, total: skills.length });
+});
+
+// Get skill detail
+app.get('/api/memory/skills/:skillId', (req, res) => {
+  const skill = memoryStore.getSkill(req.params.skillId);
+  if (!skill) return res.status(404).json({ error: 'Skill not found' });
+
+  // Include related skills
+  const related = skill.relatedSkillIds
+    .slice(0, 5)
+    .map(id => memoryStore.getSkill(id))
+    .filter(Boolean);
+
+  res.json({ skill, related });
+});
+
+// Search skills
+app.post('/api/memory/skills/search', (req, res) => {
+  const { query, domain, tags } = req.body;
+  if (!query && !domain && !tags) {
+    return res.status(400).json({ error: 'Provide query, domain, or tags' });
+  }
+  const skills = query
+    ? memoryStore.searchSkills(query)
+    : memoryStore.listSkills(domain, tags);
+  res.json({ skills, total: skills.length });
+});
+
+// List session history
+app.get('/api/memory/sessions', (req, res) => {
+  const { domain, limit, offset } = req.query;
+  const lim = parseInt(limit as string) || 20;
+  const off = parseInt(offset as string) || 0;
+  const sessions = memoryStore.listSessions(lim, off, domain as string | undefined);
+  res.json({ sessions, total: sessions.length });
+});
+
+// Get persisted session detail
+app.get('/api/memory/sessions/:sessionId', (req, res) => {
+  const session = memoryStore.getSession(req.params.sessionId);
+  if (!session) return res.status(404).json({ error: 'Session not found in memory' });
+  res.json({
+    id: session.id,
+    topic: session.topic,
+    domain: session.domain,
+    researchQuestion: session.researchQuestion,
+    phase: session.phase,
+    startTime: session.startTime,
+    endTime: session.endTime,
+    findingsCount: session.findings.length,
+    citationsCount: session.citations.length,
+    hasPaper: !!session.paper,
+    metadata: session.metadata,
+    findings: session.findings.slice(0, 10), // First 10 findings
+  });
+});
+
+// System stats
+app.get('/api/memory/stats', (_req, res) => {
+  res.json(memoryStore.getSystemStats());
+});
+
+// Performance snapshots
+app.get('/api/memory/performance', (req, res) => {
+  const limit = parseInt(req.query.limit as string) || 30;
+  res.json({ snapshots: memoryStore.getPerformanceSnapshots(limit) });
+});
+
+// ════════════════════════════════════════════════════════════
+// SELF-IMPROVEMENT — Proposals & Overrides
+// ════════════════════════════════════════════════════════════
+
+// List proposals
+app.get('/api/improvement/proposals', (req, res) => {
+  const { status } = req.query;
+  const validStatuses = ['pending', 'approved', 'rejected', 'applied'];
+  const s = validStatuses.includes(status as string)
+    ? status as 'pending' | 'approved' | 'rejected' | 'applied'
+    : undefined;
+  const proposals = memoryStore.listProposals(s);
+  res.json({ proposals, total: proposals.length });
+});
+
+// Get proposal detail
+app.get('/api/improvement/proposals/:proposalId', (req, res) => {
+  const proposal = memoryStore.getProposal(req.params.proposalId);
+  if (!proposal) return res.status(404).json({ error: 'Proposal not found' });
+  res.json({ proposal });
+});
+
+// Approve proposal
+app.post('/api/improvement/proposals/:proposalId/approve', (req, res) => {
+  const proposal = memoryStore.approveProposal(req.params.proposalId);
+  if (!proposal) return res.status(404).json({ error: 'Proposal not found' });
+  res.json({ status: 'approved', proposal });
+});
+
+// Reject proposal
+app.post('/api/improvement/proposals/:proposalId/reject', (req, res) => {
+  const { reason } = req.body;
+  const proposal = memoryStore.rejectProposal(req.params.proposalId, reason);
+  if (!proposal) return res.status(404).json({ error: 'Proposal not found' });
+  res.json({ status: 'rejected', proposal });
+});
+
+// Trigger system-wide analysis manually
+app.post('/api/improvement/analyze', async (_req, res) => {
+  try {
+    const proposals = await selfImprovementAgent.analyzeSystemPerformance();
+    res.json({
+      status: 'analysis_complete',
+      newProposals: proposals.length,
+      proposals: proposals.map(p => ({ id: p.id, title: p.title, priority: p.priority })),
+    });
+  } catch (err) {
+    res.status(500).json({ error: (err as Error).message });
+  }
+});
+
+// List active prompt overrides
+app.get('/api/improvement/overrides', (req, res) => {
+  const { agentRole } = req.query;
+  const overrides = agentRole
+    ? memoryStore.getApprovedOverrides(agentRole as string)
+    : memoryStore.getApprovedOverrides('synthesis_specialist'); // default
+  res.json({ overrides });
 });
 
 // ─── Server Start ───────────────────────────────────────────
