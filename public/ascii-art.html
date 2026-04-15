@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>ASCII Art · p5.js</title>
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: #080c14;
+        color: #e2e8f0;
+        font-family: 'SF Mono', 'Fira Code', Menlo, monospace;
+        height: 100%;
+        overflow: hidden;
+      }
+
+      #stage {
+        position: absolute;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+
+      #ascii {
+        white-space: pre;
+        line-height: 0.9;
+        letter-spacing: 0;
+        font-size: 12px;
+        color: #9a75ff;
+        text-shadow: 0 0 6px rgba(154, 117, 255, 0.4);
+        user-select: none;
+        margin: 0;
+      }
+
+      #hud {
+        position: absolute;
+        top: 14px;
+        left: 16px;
+        font-size: 11px;
+        color: #64748b;
+        z-index: 5;
+        pointer-events: none;
+      }
+
+      #hud .title {
+        font-size: 13px;
+        font-weight: 700;
+        background: linear-gradient(135deg, #667eea, #9a75ff);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 2px;
+      }
+
+      #controls {
+        position: absolute;
+        bottom: 14px;
+        left: 16px;
+        display: flex;
+        gap: 8px;
+        z-index: 5;
+      }
+
+      .pill {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 18px;
+        color: #cbd5e1;
+        font-family: inherit;
+        font-size: 11px;
+        padding: 5px 12px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+      }
+
+      .pill:hover {
+        background: rgba(102, 126, 234, 0.12);
+        border-color: rgba(102, 126, 234, 0.3);
+        color: #e2e8f0;
+      }
+
+      .pill.active {
+        background: rgba(102, 126, 234, 0.18);
+        border-color: rgba(102, 126, 234, 0.45);
+        color: #c7d2fe;
+      }
+
+      #legend {
+        position: absolute;
+        bottom: 14px;
+        right: 16px;
+        font-size: 10px;
+        color: #475569;
+        z-index: 5;
+      }
+
+      /* p5 default canvas is hidden — we render ASCII to the DOM */
+      canvas { display: none !important; }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
+  </head>
+  <body>
+    <div id="hud">
+      <div class="title">ASCII ART · p5.js</div>
+      <div>move mouse · click to pulse</div>
+    </div>
+
+    <div id="stage">
+      <pre id="ascii"></pre>
+    </div>
+
+    <div id="controls">
+      <button class="pill active" data-mode="plasma">plasma</button>
+      <button class="pill" data-mode="ripple">ripple</button>
+      <button class="pill" data-mode="tunnel">tunnel</button>
+      <button class="pill" data-mode="donut">donut</button>
+    </div>
+
+    <div id="legend">space · cycle mode</div>
+
+    <script>
+      // ─────────────────────────────────────────────────────────────
+      //  ASCII renderer driven by p5.js
+      //  Each frame computes a brightness field and maps to a glyph.
+      // ─────────────────────────────────────────────────────────────
+
+      // Light → dark ramp. More chars = smoother gradient.
+      const RAMP = " .'`^\",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
+
+      const $ascii = document.getElementById('ascii');
+      const $stage = document.getElementById('stage');
+
+      let cols = 0;
+      let rows = 0;
+      const cellW = 7.2;   // approximate glyph width at 12px mono
+      const cellH = 10.8;  // approximate glyph line height (font-size * line-height)
+
+      let mode = 'plasma';
+      let pulse = 0;       // click impulse, decays each frame
+      let pulseX = 0.5;
+      let pulseY = 0.5;
+
+      // ─── Hot-path buffer (avoid per-cell string concat) ──────────
+      let row;             // reused char array
+
+      function resize() {
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        cols = Math.max(20, Math.floor(w / cellW));
+        rows = Math.max(15, Math.floor(h / cellH));
+        row = new Array(cols);
+      }
+
+      function setup() {
+        // p5 still wants a canvas; we hide it with CSS.
+        const c = createCanvas(1, 1);
+        c.parent(document.body);
+        frameRate(30);
+        resize();
+        window.addEventListener('resize', resize);
+
+        // Mode selector buttons
+        document.querySelectorAll('#controls .pill').forEach(btn => {
+          btn.addEventListener('click', () => {
+            setMode(btn.dataset.mode);
+          });
+        });
+
+        // Spacebar cycles modes
+        const modes = ['plasma', 'ripple', 'tunnel', 'donut'];
+        window.addEventListener('keydown', (e) => {
+          if (e.code === 'Space') {
+            e.preventDefault();
+            const i = modes.indexOf(mode);
+            setMode(modes[(i + 1) % modes.length]);
+          }
+        });
+
+        // Click anywhere → pulse
+        window.addEventListener('pointerdown', (e) => {
+          pulseX = e.clientX / window.innerWidth;
+          pulseY = e.clientY / window.innerHeight;
+          pulse = 1;
+        });
+      }
+
+      function setMode(next) {
+        mode = next;
+        document.querySelectorAll('#controls .pill').forEach(b => {
+          b.classList.toggle('active', b.dataset.mode === mode);
+        });
+      }
+
+      function draw() {
+        // Mouse normalized to [0,1]. Default to center if mouse hasn't moved.
+        const mx = constrain(mouseX / window.innerWidth, 0, 1);
+        const my = constrain(mouseY / window.innerHeight, 0, 1);
+        const t = millis() * 0.001;
+
+        const out = new Array(rows);
+        const lastIdx = RAMP.length - 1;
+        const aspect = cellH / cellW; // compensate for non-square cells
+
+        for (let y = 0; y < rows; y++) {
+          // Normalized y in [-1, 1] with aspect correction
+          const ny = ((y / rows) * 2 - 1);
+          for (let x = 0; x < cols; x++) {
+            const nx = ((x / cols) * 2 - 1) * (cols / rows) / aspect;
+
+            let v = 0; // brightness in [0, 1]
+
+            switch (mode) {
+              case 'plasma': {
+                const dx = nx - (mx * 2 - 1) * 1.2;
+                const dy = ny - (my * 2 - 1) * 1.2;
+                v  = Math.sin(nx * 3 + t * 1.4);
+                v += Math.sin((ny * 3 + t * 1.1));
+                v += Math.sin((nx + ny + t) * 2.0);
+                v += Math.sin(Math.sqrt(dx * dx + dy * dy) * 6 - t * 3);
+                v = (v + 4) / 8; // → [0,1]
+                break;
+              }
+
+              case 'ripple': {
+                const cx = (mx * 2 - 1);
+                const cy = (my * 2 - 1);
+                const dx = nx - cx;
+                const dy = ny - cy;
+                const r = Math.sqrt(dx * dx + dy * dy);
+                v = 0.5 + 0.5 * Math.sin(r * 14 - t * 4) * Math.exp(-r * 0.6);
+                break;
+              }
+
+              case 'tunnel': {
+                const dx = nx;
+                const dy = ny;
+                const r = Math.sqrt(dx * dx + dy * dy) + 1e-3;
+                const a = Math.atan2(dy, dx);
+                const u = 1 / r + t * 0.6 + (mx - 0.5);
+                const w = a * 3 + (my - 0.5) * 4;
+                v = 0.5 + 0.5 * Math.sin(u * 4 + Math.sin(w));
+                v *= constrain(r * 1.6, 0, 1); // fade center
+                break;
+              }
+
+              case 'donut': {
+                // Rotating torus, classic donut.c style
+                const A = t * 0.9 + (mx - 0.5) * 2;
+                const B = t * 0.7 + (my - 0.5) * 2;
+                const sinA = Math.sin(A), cosA = Math.cos(A);
+                const sinB = Math.sin(B), cosB = Math.cos(B);
+
+                // Sample (theta, phi) inverse — approximate by checking circle
+                // Simpler: use field equation for torus projected to screen.
+                const R1 = 1.0, R2 = 0.45;
+                // Translate screen point into torus space
+                const X = nx * 1.6;
+                const Y = ny * 1.6;
+                const Z = 0;
+                // Inverse rotation
+                const x1 = X * cosB + Y * sinA * sinB - Z * cosA * sinB;
+                const y1 = Y * cosA + Z * sinA;
+                const z1 = X * sinB - Y * sinA * cosB + Z * cosA * cosB;
+                const q = Math.sqrt(x1 * x1 + y1 * y1) - R1;
+                const d = Math.sqrt(q * q + z1 * z1) - R2;
+                // Soft surface
+                v = 1.0 - constrain(Math.abs(d) * 4.5, 0, 1);
+                // Lighting from upper-left
+                const lx = -0.6, ly = -0.5;
+                const nrm = Math.atan2(z1, q);
+                const shade = 0.5 + 0.5 * Math.cos(nrm + t * 0.5 + lx + ly);
+                v = v * (0.35 + 0.65 * shade);
+                break;
+              }
+            }
+
+            // Apply pulse
+            if (pulse > 0.01) {
+              const pdx = (x / cols) - pulseX;
+              const pdy = (y / rows) - pulseY;
+              const pr = Math.sqrt(pdx * pdx + pdy * pdy);
+              const wave = Math.sin(pr * 30 - pulse * 8) * Math.exp(-pr * 5);
+              v += wave * pulse * 0.6;
+            }
+
+            v = v < 0 ? 0 : v > 1 ? 1 : v;
+            const idx = Math.floor(v * lastIdx);
+            row[x] = RAMP[idx];
+          }
+          out[y] = row.join('');
+        }
+
+        $ascii.textContent = out.join('\n');
+
+        // Decay pulse
+        if (pulse > 0) pulse = Math.max(0, pulse - 0.025);
+      }
+
+      // Expose for p5 global mode
+      window.setup = setup;
+      window.draw = draw;
+    </script>
+  </body>
+</html>
