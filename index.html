@@ -3,16 +3,326 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" href="/favicon.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta name="description" content="Elite Multi-Agent AI Scientific Research System powered by Claude Opus 4.6" />
-    <title>ResearchOS — Multi-Agent Scientific Research System</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#080c14" />
+    <meta name="description" content="Real-time ASCII art rendered with p5.js" />
+    <title>ASCII Art · p5.js</title>
     <style>
-      html, body { background: #080c14; margin: 0; padding: 0; height: 100%; overflow: hidden; }
-      #app { height: 100%; }
+      html, body {
+        margin: 0;
+        padding: 0;
+        background: #080c14;
+        color: #e2e8f0;
+        font-family: 'SF Mono', 'Fira Code', Menlo, monospace;
+        height: 100%;
+        overflow: hidden;
+        -webkit-font-smoothing: antialiased;
+        -webkit-tap-highlight-color: transparent;
+        touch-action: none;
+      }
+
+      #stage {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+      }
+
+      #ascii {
+        white-space: pre;
+        line-height: 0.95;
+        letter-spacing: 0;
+        font-size: 10px;
+        color: #9a75ff;
+        text-shadow: 0 0 6px rgba(154, 117, 255, 0.35);
+        user-select: none;
+        margin: 0;
+      }
+
+      /* Phone gets a slightly smaller glyph */
+      @media (max-width: 520px) {
+        #ascii { font-size: 8.5px; line-height: 0.98; }
+      }
+
+      #hud {
+        position: fixed;
+        top: calc(10px + env(safe-area-inset-top));
+        left: 12px;
+        font-size: 10px;
+        color: #64748b;
+        z-index: 5;
+        pointer-events: none;
+      }
+
+      #hud .title {
+        font-size: 12px;
+        font-weight: 700;
+        background: linear-gradient(135deg, #667eea, #9a75ff);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        background-clip: text;
+        margin-bottom: 2px;
+        letter-spacing: 0.5px;
+      }
+
+      #controls {
+        position: fixed;
+        bottom: calc(10px + env(safe-area-inset-bottom));
+        left: 12px;
+        right: 12px;
+        display: flex;
+        gap: 6px;
+        justify-content: center;
+        flex-wrap: wrap;
+        z-index: 5;
+      }
+
+      .pill {
+        background: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.08);
+        border-radius: 18px;
+        color: #cbd5e1;
+        font-family: inherit;
+        font-size: 11px;
+        padding: 6px 12px;
+        cursor: pointer;
+        transition: all 0.15s ease;
+        -webkit-appearance: none;
+      }
+
+      .pill:hover, .pill:active {
+        background: rgba(102, 126, 234, 0.14);
+        border-color: rgba(102, 126, 234, 0.35);
+        color: #e2e8f0;
+      }
+
+      .pill.active {
+        background: rgba(102, 126, 234, 0.22);
+        border-color: rgba(102, 126, 234, 0.5);
+        color: #c7d2fe;
+      }
+
+      #link-research {
+        position: fixed;
+        top: calc(10px + env(safe-area-inset-top));
+        right: 12px;
+        font-size: 10px;
+        color: #475569;
+        text-decoration: none;
+        border: 1px solid rgba(255,255,255,0.08);
+        border-radius: 14px;
+        padding: 4px 10px;
+        z-index: 5;
+      }
+
+      #link-research:hover { color: #9a75ff; border-color: rgba(154,117,255,0.3); }
+
+      canvas { display: none !important; }
     </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.4/p5.min.js"></script>
   </head>
   <body>
-    <div id="app"></div>
-    <script type="module" src="/src/main.js"></script>
+    <div id="hud">
+      <div class="title">ASCII · p5.js</div>
+      <div>toca / mueve · pulsa para onda</div>
+    </div>
+
+    <a id="link-research" href="/research.html">ResearchOS →</a>
+
+    <div id="stage">
+      <pre id="ascii"></pre>
+    </div>
+
+    <div id="controls">
+      <button class="pill active" data-mode="plasma">plasma</button>
+      <button class="pill" data-mode="ripple">ripple</button>
+      <button class="pill" data-mode="tunnel">tunnel</button>
+      <button class="pill" data-mode="donut">donut</button>
+    </div>
+
+    <script>
+      // Light → dark ramp.
+      const RAMP = " .'`^\",:;Il!i><~+_-?][}{1)(|\\/tfjrxnuvczXYUJCLQ0OZmwqpdbkhao*#MW&8%B@$";
+
+      const $ascii = document.getElementById('ascii');
+
+      let cols = 0;
+      let rows = 0;
+      // Approximate glyph metrics for mono font at default size.
+      // Recomputed from real DOM measurement on resize.
+      let cellW = 6;
+      let cellH = 10;
+
+      let mode = 'plasma';
+      let pulse = 0;
+      let pulseX = 0.5;
+      let pulseY = 0.5;
+
+      // Pointer-driven mouse (works for touch too)
+      let px = 0.5, py = 0.5;
+
+      let row;
+
+      function measureCell() {
+        // Measure a single glyph of the current font to size the grid.
+        const probe = document.createElement('span');
+        probe.style.cssText = 'position:absolute;visibility:hidden;white-space:pre;' +
+          getComputedStyle($ascii).cssText;
+        probe.style.visibility = 'hidden';
+        probe.style.position = 'absolute';
+        probe.textContent = 'M'.repeat(50) + '\n' + 'M'.repeat(50);
+        document.body.appendChild(probe);
+        const rect = probe.getBoundingClientRect();
+        cellW = rect.width / 50 || 6;
+        cellH = rect.height / 2 || 10;
+        document.body.removeChild(probe);
+      }
+
+      function resize() {
+        measureCell();
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        cols = Math.max(20, Math.floor(w / cellW));
+        rows = Math.max(15, Math.floor((h - 20) / cellH));
+        row = new Array(cols);
+      }
+
+      function setup() {
+        const c = createCanvas(1, 1);
+        c.parent(document.body);
+        frameRate(30);
+        resize();
+        window.addEventListener('resize', resize);
+        window.addEventListener('orientationchange', () => setTimeout(resize, 150));
+
+        document.querySelectorAll('#controls .pill').forEach(btn => {
+          btn.addEventListener('click', () => setMode(btn.dataset.mode));
+        });
+
+        const modes = ['plasma', 'ripple', 'tunnel', 'donut'];
+        window.addEventListener('keydown', (e) => {
+          if (e.code === 'Space') {
+            e.preventDefault();
+            const i = modes.indexOf(mode);
+            setMode(modes[(i + 1) % modes.length]);
+          }
+        });
+
+        // Unified pointer (mouse + touch)
+        window.addEventListener('pointermove', (e) => {
+          px = e.clientX / window.innerWidth;
+          py = e.clientY / window.innerHeight;
+        }, { passive: true });
+
+        window.addEventListener('pointerdown', (e) => {
+          // Ignore taps on control pills / links
+          if (e.target.closest('#controls') || e.target.closest('#link-research')) return;
+          pulseX = e.clientX / window.innerWidth;
+          pulseY = e.clientY / window.innerHeight;
+          pulse = 1;
+        }, { passive: true });
+      }
+
+      function setMode(next) {
+        mode = next;
+        document.querySelectorAll('#controls .pill').forEach(b => {
+          b.classList.toggle('active', b.dataset.mode === mode);
+        });
+      }
+
+      function draw() {
+        const mx = Math.min(1, Math.max(0, px));
+        const my = Math.min(1, Math.max(0, py));
+        const t = millis() * 0.001;
+
+        const out = new Array(rows);
+        const lastIdx = RAMP.length - 1;
+        const aspect = cellH / cellW;
+
+        for (let y = 0; y < rows; y++) {
+          const ny = ((y / rows) * 2 - 1);
+          for (let x = 0; x < cols; x++) {
+            const nx = ((x / cols) * 2 - 1) * (cols / rows) / aspect;
+
+            let v = 0;
+
+            switch (mode) {
+              case 'plasma': {
+                const dx = nx - (mx * 2 - 1) * 1.2;
+                const dy = ny - (my * 2 - 1) * 1.2;
+                v  = Math.sin(nx * 3 + t * 1.4);
+                v += Math.sin(ny * 3 + t * 1.1);
+                v += Math.sin((nx + ny + t) * 2.0);
+                v += Math.sin(Math.sqrt(dx * dx + dy * dy) * 6 - t * 3);
+                v = (v + 4) / 8;
+                break;
+              }
+
+              case 'ripple': {
+                const cx = (mx * 2 - 1);
+                const cy = (my * 2 - 1);
+                const dx = nx - cx;
+                const dy = ny - cy;
+                const r = Math.sqrt(dx * dx + dy * dy);
+                v = 0.5 + 0.5 * Math.sin(r * 14 - t * 4) * Math.exp(-r * 0.6);
+                break;
+              }
+
+              case 'tunnel': {
+                const r = Math.sqrt(nx * nx + ny * ny) + 1e-3;
+                const a = Math.atan2(ny, nx);
+                const u = 1 / r + t * 0.6 + (mx - 0.5);
+                const w = a * 3 + (my - 0.5) * 4;
+                v = 0.5 + 0.5 * Math.sin(u * 4 + Math.sin(w));
+                v *= Math.min(1, r * 1.6);
+                break;
+              }
+
+              case 'donut': {
+                const A = t * 0.9 + (mx - 0.5) * 2;
+                const B = t * 0.7 + (my - 0.5) * 2;
+                const sinA = Math.sin(A), cosA = Math.cos(A);
+                const sinB = Math.sin(B), cosB = Math.cos(B);
+                const R1 = 1.0, R2 = 0.45;
+                const X = nx * 1.6;
+                const Y = ny * 1.6;
+                const Z = 0;
+                const x1 = X * cosB + Y * sinA * sinB - Z * cosA * sinB;
+                const y1 = Y * cosA + Z * sinA;
+                const z1 = X * sinB - Y * sinA * cosB + Z * cosA * cosB;
+                const q = Math.sqrt(x1 * x1 + y1 * y1) - R1;
+                const d = Math.sqrt(q * q + z1 * z1) - R2;
+                v = 1.0 - Math.min(1, Math.abs(d) * 4.5);
+                const nrm = Math.atan2(z1, q);
+                const shade = 0.5 + 0.5 * Math.cos(nrm + t * 0.5 - 1.1);
+                v = v * (0.35 + 0.65 * shade);
+                break;
+              }
+            }
+
+            if (pulse > 0.01) {
+              const pdx = (x / cols) - pulseX;
+              const pdy = (y / rows) - pulseY;
+              const pr = Math.sqrt(pdx * pdx + pdy * pdy);
+              const wave = Math.sin(pr * 30 - pulse * 8) * Math.exp(-pr * 5);
+              v += wave * pulse * 0.6;
+            }
+
+            v = v < 0 ? 0 : v > 1 ? 1 : v;
+            row[x] = RAMP[(v * lastIdx) | 0];
+          }
+          out[y] = row.join('');
+        }
+
+        $ascii.textContent = out.join('\n');
+
+        if (pulse > 0) pulse = Math.max(0, pulse - 0.025);
+      }
+
+      window.setup = setup;
+      window.draw = draw;
+    </script>
   </body>
 </html>
