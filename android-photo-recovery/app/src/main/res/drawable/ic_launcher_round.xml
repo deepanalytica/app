@@ -1,0 +1,15 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <!-- Circular blue background -->
+    <path android:fillColor="#1565C0"
+        android:pathData="M54,0A54,54 0 1,1 54,108A54,54 0 1,1 54,0Z" />
+    <!-- Camera body -->
+    <path android:fillColor="#FFFFFF"
+        android:pathData="M76,42H70.5L67,37H41L37.5,42H32A4,4 0 0,0 28,46V72A4,4 0 0,0 32,76H76A4,4 0 0,0 80,72V46A4,4 0 0,0 76,42ZM54,70C47.37,70 42,64.63 42,58C42,51.37 47.37,46 54,46C60.63,46 66,51.37 66,58C66,64.63 60.63,70 54,70Z" />
+    <!-- Restore arrow (cyan) -->
+    <path android:fillColor="#00E5FF"
+        android:pathData="M54,50C50.13,50 47,53.13 47,57C47,60.87 50.13,64 54,64C56.43,64 58.56,62.77 59.8,60.9L61.8,62.9C60.07,65.33 57.22,67 54,67C48.48,67 44,62.52 44,57C44,51.48 48.48,47 54,47V43L60,49L54,55V50Z" />
+</vector>
