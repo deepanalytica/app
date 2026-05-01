@@ -43,11 +43,11 @@ class MainActivity : AppCompatActivity() {
         ActivityResultContracts.RequestMultiplePermissions()
     ) { grants ->
         if (grants.values.all { it }) {
-            viewModel.scanDeletedPhotos()
+            viewModel.scanDeletedMedia()
         } else {
             Snackbar.make(
                 recyclerView,
-                "Permiso denegado — sin acceso a fotos no podemos escanear",
+                "Permiso denegado — ve a Ajustes para concederlo",
                 Snackbar.LENGTH_LONG
             ).setAction("Ajustes") { openAppSettings() }.show()
         }
@@ -63,8 +63,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        val toolbar = findViewById<Toolbar>(R.id.toolbar)
-        setSupportActionBar(toolbar)
+        setSupportActionBar(findViewById<Toolbar>(R.id.toolbar))
 
         recyclerView = findViewById(R.id.recyclerView)
         progressBar = findViewById(R.id.progressBar)
@@ -85,21 +84,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun observeViewModel() {
-        viewModel.photos.observe(this) { photos ->
-            adapter.setPhotos(photos)
-            layoutEmpty.visibility = if (photos.isEmpty()) View.VISIBLE else View.GONE
-            recyclerView.visibility = if (photos.isEmpty()) View.GONE else View.VISIBLE
+        viewModel.items.observe(this) { list ->
+            adapter.setItems(list)
+            layoutEmpty.visibility = if (list.isEmpty()) View.VISIBLE else View.GONE
+            recyclerView.visibility = if (list.isEmpty()) View.GONE else View.VISIBLE
         }
-
         viewModel.isLoading.observe(this) { loading ->
             progressBar.visibility = if (loading) View.VISIBLE else View.GONE
             buttonScan.isEnabled = !loading
         }
-
-        viewModel.statusMessage.observe(this) { msg ->
-            textStatus.text = msg
-        }
-
+        viewModel.statusMessage.observe(this) { msg -> textStatus.text = msg }
         viewModel.pendingIntentSender.observe(this) { sender ->
             sender?.let {
                 recoveryLauncher.launch(IntentSenderRequest.Builder(it).build())
@@ -109,22 +103,21 @@ class MainActivity : AppCompatActivity() {
 
     private fun checkPermissionsAndScan() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-            Toast.makeText(
-                this,
-                "La papelera de reciclaje requiere Android 11 o superior",
-                Toast.LENGTH_LONG
-            ).show()
+            Toast.makeText(this, "Requiere Android 11 o superior", Toast.LENGTH_LONG).show()
             return
         }
         val required = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
-            arrayOf(Manifest.permission.READ_MEDIA_IMAGES)
+            arrayOf(
+                Manifest.permission.READ_MEDIA_IMAGES,
+                Manifest.permission.READ_MEDIA_VIDEO
+            )
         else
             arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
 
         val allGranted = required.all {
             ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
         }
-        if (allGranted) viewModel.scanDeletedPhotos()
+        if (allGranted) viewModel.scanDeletedMedia()
         else permissionLauncher.launch(required)
     }
 
@@ -132,7 +125,7 @@ class MainActivity : AppCompatActivity() {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return
         val selected = adapter.getSelected()
         if (selected.isEmpty()) {
-            Toast.makeText(this, "Selecciona al menos una foto", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Selecciona al menos un archivo", Toast.LENGTH_SHORT).show()
             return
         }
         viewModel.recoverSelected(selected)
@@ -142,7 +135,7 @@ class MainActivity : AppCompatActivity() {
         if (count > 0) {
             fabRecover.show()
             textSelectedCount.visibility = View.VISIBLE
-            textSelectedCount.text = "$count foto(s) seleccionada(s)"
+            textSelectedCount.text = "$count archivo(s) seleccionado(s)"
         } else {
             fabRecover.hide()
             textSelectedCount.visibility = View.GONE

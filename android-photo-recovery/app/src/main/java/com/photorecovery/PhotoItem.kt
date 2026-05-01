@@ -8,5 +8,6 @@ data class PhotoItem(
     val displayName: String,
     val dateModified: Long,
     val size: Long,
+    val isVideo: Boolean = false,
     var isSelected: Boolean = false
 )

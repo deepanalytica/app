@@ -1,7 +1,7 @@
 <resources>
     <string name="app_name">Recuperar Fotos</string>
-    <string name="app_description">Escanea la papelera de reciclaje para encontrar fotos eliminadas y recupéralas fácilmente. Requiere Android 11+.</string>
+    <string name="app_description">Recupera fotos y videos eliminados de la papelera. Compatible con Xiaomi MIUI y Android 11+.</string>
     <string name="scan_button">Escanear Papelera</string>
-    <string name="recover_button">Recuperar seleccionadas</string>
-    <string name="no_photos_found">No hay fotos en la papelera</string>
+    <string name="recover_button">Recuperar seleccionados</string>
+    <string name="no_photos_found">No hay archivos en la papelera</string>
 </resources>

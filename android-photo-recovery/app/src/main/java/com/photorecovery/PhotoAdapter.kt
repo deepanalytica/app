@@ -21,6 +21,7 @@ class PhotoAdapter(
         val checkbox: CheckBox = view.findViewById(R.id.checkSelected)
         val overlay: View = view.findViewById(R.id.selectedOverlay)
         val name: TextView = view.findViewById(R.id.textName)
+        val playIcon: ImageView = view.findViewById(R.id.iconPlay)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
@@ -44,6 +45,7 @@ class PhotoAdapter(
         holder.checkbox.isChecked = item.isSelected
         holder.checkbox.visibility = if (selectionMode) View.VISIBLE else View.GONE
         holder.overlay.visibility = if (item.isSelected) View.VISIBLE else View.GONE
+        holder.playIcon.visibility = if (item.isVideo) View.VISIBLE else View.GONE
 
         holder.itemView.setOnLongClickListener {
             if (!selectionMode) {
@@ -70,16 +72,15 @@ class PhotoAdapter(
         onSelectionChanged(count)
     }
 
-    fun setPhotos(photos: List<PhotoItem>) {
+    fun setItems(newItems: List<PhotoItem>) {
         items.clear()
-        items.addAll(photos)
+        items.addAll(newItems)
         selectionMode = false
         notifyDataSetChanged()
         onSelectionChanged(0)
     }
 
     fun getSelected(): List<PhotoItem> = items.filter { it.isSelected }
-
     fun getSelectedCount() = items.count { it.isSelected }
 
     fun selectAll() {

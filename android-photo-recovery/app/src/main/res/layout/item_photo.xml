@@ -12,12 +12,21 @@
         android:scaleType="centerCrop"
         android:background="@color/imageBackground" />
 
-    <!-- Blue tint overlay when selected -->
+    <!-- Selection blue overlay -->
     <View
         android:id="@+id/selectedOverlay"
         android:layout_width="match_parent"
         android:layout_height="110dp"
         android:background="#660055FF"
+        android:visibility="gone" />
+
+    <!-- Video play icon (center) -->
+    <ImageView
+        android:id="@+id/iconPlay"
+        android:layout_width="36dp"
+        android:layout_height="36dp"
+        android:layout_gravity="center"
+        android:src="@drawable/ic_play"
         android:visibility="gone" />
 
     <CheckBox
@@ -28,7 +37,6 @@
         android:layout_margin="4dp"
         android:visibility="gone" />
 
-    <!-- Filename label -->
     <TextView
         android:id="@+id/textName"
         android:layout_width="match_parent"
