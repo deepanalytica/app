@@ -9,7 +9,6 @@
     <com.google.android.material.appbar.AppBarLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content">
-
         <androidx.appcompat.widget.Toolbar
             android:id="@+id/toolbar"
             android:layout_width="match_parent"
@@ -25,7 +24,6 @@
         android:orientation="vertical"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-        <!-- Control card -->
         <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -43,17 +41,29 @@
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:text="@string/app_description"
-                    android:textSize="14sp"
+                    android:textSize="13sp"
                     android:textColor="@color/textSecondary" />
 
+                <!-- Boton principal: escanear papelera Android -->
                 <Button
                     android:id="@+id/buttonScan"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:layout_marginTop="12dp"
+                    android:layout_marginTop="10dp"
                     android:text="@string/scan_button"
                     android:backgroundTint="@color/colorPrimary"
                     style="@style/Widget.MaterialComponents.Button" />
+
+                <!-- Boton para MIUI: pedir acceso a todos los archivos -->
+                <Button
+                    android:id="@+id/buttonAllFiles"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="@string/allow_all_files"
+                    android:backgroundTint="@color/colorMiui"
+                    style="@style/Widget.MaterialComponents.Button"
+                    android:visibility="gone" />
 
                 <ProgressBar
                     android:id="@+id/progressBar"
@@ -75,7 +85,6 @@
             </LinearLayout>
         </com.google.android.material.card.MaterialCardView>
 
-        <!-- Selection counter -->
         <TextView
             android:id="@+id/textSelectedCount"
             android:layout_width="match_parent"
@@ -87,7 +96,6 @@
             android:textSize="14sp"
             android:visibility="gone" />
 
-        <!-- Empty state -->
         <LinearLayout
             android:id="@+id/layoutEmpty"
             android:layout_width="match_parent"
@@ -113,7 +121,6 @@
                 android:textColor="@color/textSecondary" />
         </LinearLayout>
 
-        <!-- Photo grid -->
         <androidx.recyclerview.widget.RecyclerView
             android:id="@+id/recyclerView"
             android:layout_width="match_parent"
@@ -122,10 +129,8 @@
             android:padding="2dp"
             android:clipToPadding="false"
             android:visibility="gone" />
-
     </LinearLayout>
 
-    <!-- Recover FAB -->
     <com.google.android.material.floatingactionbutton.FloatingActionButton
         android:id="@+id/fabRecover"
         android:layout_width="wrap_content"

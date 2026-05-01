@@ -9,5 +9,7 @@ data class PhotoItem(
     val dateModified: Long,
     val size: Long,
     val isVideo: Boolean = false,
+    val isFromMiuiTrash: Boolean = false,
+    val filePath: String? = null,
     var isSelected: Boolean = false
 )
