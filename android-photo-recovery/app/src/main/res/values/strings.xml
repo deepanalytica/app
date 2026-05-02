@@ -1,8 +1,8 @@
 <resources>
     <string name="app_name">Recuperar Fotos</string>
-    <string name="app_description">Busca fotos y videos en la papelera de reciclaje. Para papelera MIUI toca el boton naranja primero.</string>
-    <string name="scan_button">Escanear Papelera</string>
-    <string name="allow_all_files">Activar acceso MIUI Gallery (recomendado)</string>
-    <string name="recover_button">Recuperar seleccionados</string>
-    <string name="no_photos_found">No hay archivos en la papelera</string>
+    <string name="app_description">Busca en WhatsApp, Telegram, papelera MIUI, descargas, capturas y mas. Toca el boton naranja primero para activar acceso completo.</string>
+    <string name="allow_all_files">🟠 Paso 1: Activar acceso a todos los archivos (MIUI + WhatsApp)</string>
+    <string name="scan_button">🔍 Escanear todo el telefono</string>
+    <string name="recover_button">Guardar en DCIM/Recuperadas</string>
+    <string name="no_photos_found">No se encontraron archivos</string>
 </resources>

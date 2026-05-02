@@ -26,7 +26,7 @@ class RecoveryViewModel(application: Application) : AndroidViewModel(application
     private val _isLoading = MutableLiveData(false)
     val isLoading: LiveData<Boolean> = _isLoading
 
-    private val _statusMessage = MutableLiveData("Presiona \"Escanear\" para buscar fotos y videos eliminados")
+    private val _statusMessage = MutableLiveData("Presiona Escanear para buscar en WhatsApp, Telegram y todos los rincones del teléfono")
     val statusMessage: LiveData<String> = _statusMessage
 
     private val _pendingIntentSender = MutableLiveData<IntentSender?>()
@@ -34,24 +34,75 @@ class RecoveryViewModel(application: Application) : AndroidViewModel(application
 
     private var pendingCount = 0
 
-    // Rutas conocidas de la papelera de MIUI
-    private val miuiTrashPaths = listOf(
-        "MIUI/Gallery/cloud/trash",
-        "MIUI/Gallery/trash",
-        ".gallery_trash"
+    private val imageExts = setOf("jpg", "jpeg", "png", "gif", "bmp", "webp", "heic", "heif")
+    private val videoExts = setOf("mp4", "mov", "avi", "mkv", "3gp", "wmv", "m4v", "ts")
+
+    // Todas las rutas a escanear: ruta relativa -> etiqueta visible
+    private val scanLocations = linkedMapOf(
+        // Papeleras
+        "MIUI/Gallery/cloud/trash" to "🗑 Papelera MIUI",
+        "MIUI/Gallery/trash" to "🗑 Papelera MIUI",
+        ".gallery_trash" to "🗑 Papelera",
+        // WhatsApp (ruta antigua, Android <11)
+        "WhatsApp/Media/WhatsApp Images" to "WhatsApp",
+        "WhatsApp/Media/WhatsApp Images/Sent" to "WhatsApp Enviadas",
+        "WhatsApp/Media/WhatsApp Video" to "WhatsApp Video",
+        "WhatsApp/Media/WhatsApp Video/Sent" to "WhatsApp Video Env.",
+        "WhatsApp/Media/WhatsApp Animated Gifs" to "WhatsApp GIFs",
+        "WhatsApp/Media/WhatsApp Documents" to "WhatsApp Docs",
+        // WhatsApp (ruta nueva, Android 11+)
+        "Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Images" to "WhatsApp",
+        "Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Images/Sent" to "WhatsApp Enviadas",
+        "Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Video" to "WhatsApp Video",
+        "Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Video/Sent" to "WhatsApp Video Env.",
+        "Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Animated Gifs" to "WhatsApp GIFs",
+        // WhatsApp Business
+        "WhatsApp Business/Media/WhatsApp Business Images" to "WA Business",
+        "Android/media/com.whatsapp.w4b/WhatsApp Business/Media/WhatsApp Business Images" to "WA Business",
+        // Telegram
+        "Telegram" to "Telegram",
+        "Telegram/Telegram Images" to "Telegram",
+        "Telegram/Telegram Video" to "Telegram Video",
+        "Telegram/Telegram Documents" to "Telegram Docs",
+        // Telegram X
+        "Android/data/org.thunderdog.challegram/files/documents" to "Telegram X",
+        // Descargas
+        "Download" to "Descargas",
+        "Downloads" to "Descargas",
+        // Capturas de pantalla
+        "MIUI/Screenshots" to "Capturas",
+        "Pictures/Screenshots" to "Capturas",
+        "DCIM/Screenshots" to "Capturas",
+        // Instagram
+        "Pictures/Instagram" to "Instagram",
+        "DCIM/Instagram" to "Instagram",
+        // Facebook
+        "DCIM/Facebook" to "Facebook",
+        "DCIM/Facebook Reels" to "Facebook",
+        "Pictures/Facebook" to "Facebook",
+        // Signal
+        "Pictures/Signal" to "Signal",
+        // Snapchat
+        "Android/data/com.snapchat.android/files/" to "Snapchat",
+        // TikTok
+        "DCIM/TikTok" to "TikTok",
+        // Miniaturas (baja calidad, util si el original fue borrado)
+        "DCIM/.thumbnails" to "🖼 Miniatura",
+        "Pictures/.thumbnails" to "🖼 Miniatura",
+        // Camara
+        "DCIM/Camera" to "Cámara",
+        "DCIM/Camera1" to "Cámara",
     )
 
-    private val imageExtensions = setOf("jpg", "jpeg", "png", "gif", "bmp", "webp", "heic", "heif")
-    private val videoExtensions = setOf("mp4", "mov", "avi", "mkv", "3gp", "wmv", "m4v")
-
-    fun scanDeletedMedia(hasManageStorage: Boolean) {
+    fun scanEverything(hasManageStorage: Boolean) {
         viewModelScope.launch {
             _isLoading.value = true
-            _statusMessage.value = "Escaneando papelera..."
+            _statusMessage.value = "Escaneando WhatsApp, Telegram, papeleras y mas..."
+
             val found = withContext(Dispatchers.IO) {
                 val result = mutableListOf<PhotoItem>()
 
-                // 1. Papelera estandar Android 11+ (MediaStore IS_TRASHED)
+                // 1. Papelera estandar Android 11+
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
                     result += queryMediaStoreTrash(
                         MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL), false
@@ -61,34 +112,33 @@ class RecoveryViewModel(application: Application) : AndroidViewModel(application
                     )
                 }
 
-                // 2. Papelera propia de MIUI (requiere MANAGE_EXTERNAL_STORAGE)
-                if (hasManageStorage && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
-                    Environment.isExternalStorageManager()
-                ) {
-                    result += scanMiuiTrashFolders()
+                // 2. Escaneo de todas las carpetas del sistema de archivos
+                if (hasManageStorage) {
+                    result += scanFolders()
                 }
 
-                // Eliminar duplicados por nombre+tamaño y ordenar por fecha
+                // Deduplicar por ruta de archivo, ordenar por fecha desc
                 result
-                    .distinctBy { it.displayName + it.size }
+                    .distinctBy { it.filePath ?: "${it.id}" }
                     .sortedByDescending { it.dateModified }
             }
 
             _items.value = found
             _isLoading.value = false
-            _statusMessage.value = when {
-                found.isEmpty() ->
-                    if (!hasManageStorage)
-                        "Papelera Android vacia.\nConcede permiso \"Todos los archivos\" para buscar en la papelera de MIUI Gallery"
-                    else
-                        "No se encontraron fotos/videos en la papelera"
-                else -> {
-                    val photos = found.count { !it.isVideo }
-                    val videos = found.count { it.isVideo }
-                    val miui = found.count { it.isFromMiuiTrash }
-                    "${found.size} archivo(s): $photos foto(s) | $videos video(s)" +
-                            if (miui > 0) " ($miui de MIUI)" else ""
-                }
+
+            if (found.isEmpty()) {
+                _statusMessage.value = if (!hasManageStorage)
+                    "Concede el permiso naranja para escanear WhatsApp y mas"
+                else
+                    "No se encontraron archivos en ninguna ubicacion"
+            } else {
+                // Resumen por fuente
+                val bySource = found.groupBy { it.sourceName }
+                val summary = bySource.entries
+                    .sortedByDescending { it.value.size }
+                    .take(4)
+                    .joinToString(" | ") { "${it.key}: ${it.value.size}" }
+                _statusMessage.value = "${found.size} archivos encontrados — $summary"
             }
         }
     }
@@ -112,47 +162,45 @@ class RecoveryViewModel(application: Application) : AndroidViewModel(application
             val sizeCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.SIZE)
             while (cursor.moveToNext()) {
                 val id = cursor.getLong(idCol)
-                result.add(
-                    PhotoItem(
-                        id = id,
-                        uri = ContentUris.withAppendedId(collection, id),
-                        displayName = cursor.getString(nameCol) ?: "archivo",
-                        dateModified = cursor.getLong(dateCol),
-                        size = cursor.getLong(sizeCol),
-                        isVideo = isVideo
-                    )
-                )
+                result.add(PhotoItem(
+                    id = id,
+                    uri = ContentUris.withAppendedId(collection, id),
+                    displayName = cursor.getString(nameCol) ?: "archivo",
+                    dateModified = cursor.getLong(dateCol),
+                    size = cursor.getLong(sizeCol),
+                    isVideo = isVideo,
+                    sourceName = "🗑 Papelera Android"
+                ))
             }
         }
         return result
     }
 
-    private fun scanMiuiTrashFolders(): List<PhotoItem> {
+    private fun scanFolders(): List<PhotoItem> {
         val sdcard = Environment.getExternalStorageDirectory()
         val result = mutableListOf<PhotoItem>()
-        for (relativePath in miuiTrashPaths) {
+        for ((relativePath, label) in scanLocations) {
             val dir = File(sdcard, relativePath)
             if (!dir.exists() || !dir.isDirectory) continue
-            dir.walkTopDown()
-                .filter { it.isFile }
-                .forEach { file ->
-                    val ext = file.extension.lowercase()
-                    val isImage = ext in imageExtensions
-                    val isVideo = ext in videoExtensions
-                    if (!isImage && !isVideo) return@forEach
-                    result.add(
-                        PhotoItem(
-                            id = 0L,
-                            uri = Uri.fromFile(file),
-                            displayName = file.name,
-                            dateModified = file.lastModified() / 1000,
-                            size = file.length(),
-                            isVideo = isVideo,
-                            isFromMiuiTrash = true,
-                            filePath = file.absolutePath
-                        )
-                    )
-                }
+            dir.listFiles()?.forEach { file ->
+                if (!file.isFile) return@forEach
+                if (file.name.startsWith(".") && file.extension.isEmpty()) return@forEach
+                val ext = file.extension.lowercase()
+                val isImg = ext in imageExts
+                val isVid = ext in videoExts
+                if (!isImg && !isVid) return@forEach
+                result.add(PhotoItem(
+                    id = 0L,
+                    uri = Uri.fromFile(file),
+                    displayName = file.name,
+                    dateModified = file.lastModified() / 1000,
+                    size = file.length(),
+                    isVideo = isVid,
+                    isFromMiuiTrash = relativePath.contains("trash"),
+                    filePath = file.absolutePath,
+                    sourceName = label
+                ))
+            }
         }
         return result
     }
@@ -161,34 +209,28 @@ class RecoveryViewModel(application: Application) : AndroidViewModel(application
         viewModelScope.launch {
             _isLoading.value = true
             try {
-                val miuiItems = selected.filter { it.isFromMiuiTrash }
-                val standardItems = selected.filter { !it.isFromMiuiTrash }
+                val fileItems = selected.filter { it.filePath != null }
+                val storeItems = selected.filter { it.filePath == null }
 
-                // Recuperar archivos MIUI copiandolos a DCIM/Recuperadas
-                var miuiRecovered = 0
-                if (miuiItems.isNotEmpty()) {
-                    miuiRecovered = withContext(Dispatchers.IO) { recoverMiuiFiles(miuiItems) }
+                var copied = 0
+                if (fileItems.isNotEmpty()) {
+                    copied = withContext(Dispatchers.IO) { copyToRecovered(fileItems) }
                 }
 
-                if (standardItems.isNotEmpty() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-                    // Recuperar via MediaStore (muestra dialogo del sistema)
-                    val context = getApplication<Application>()
-                    pendingCount = standardItems.size + miuiRecovered
+                if (storeItems.isNotEmpty() && Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    pendingCount = storeItems.size + copied
                     val pi = MediaStore.createTrashRequest(
-                        context.contentResolver,
-                        standardItems.map { it.uri },
+                        getApplication<Application>().contentResolver,
+                        storeItems.map { it.uri },
                         false
                     )
                     _pendingIntentSender.value = pi.intentSender
                 } else {
                     _isLoading.value = false
-                    if (miuiRecovered > 0) {
-                        _statusMessage.value =
-                            "$miuiRecovered archivo(s) copiado(s) a DCIM/Recuperadas ✓"
-                        scanDeletedMedia(true)
-                    } else {
-                        _statusMessage.value = "No se pudo recuperar ninguno"
-                    }
+                    _statusMessage.value = if (copied > 0)
+                        "$copied archivo(s) guardado(s) en DCIM/Recuperadas ✓"
+                    else "No se pudo recuperar nada"
+                    if (copied > 0) scanEverything(true)
                 }
             } catch (e: Exception) {
                 _statusMessage.value = "Error: ${e.message}"
@@ -197,17 +239,15 @@ class RecoveryViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    private fun recoverMiuiFiles(photos: List<PhotoItem>): Int {
+    private fun copyToRecovered(items: List<PhotoItem>): Int {
         val context = getApplication<Application>()
-        val recoveryDir = File(
-            Environment.getExternalStorageDirectory(), "DCIM/Recuperadas"
-        ).also { it.mkdirs() }
+        val destDir = File(Environment.getExternalStorageDirectory(), "DCIM/Recuperadas").also { it.mkdirs() }
         var count = 0
-        for (photo in photos) {
-            val src = File(photo.filePath ?: continue)
+        for (item in items) {
+            val src = File(item.filePath ?: continue)
             if (!src.exists()) continue
             try {
-                val dst = File(recoveryDir, photo.displayName)
+                val dst = File(destDir, src.name)
                 src.copyTo(dst, overwrite = true)
                 MediaScannerConnection.scanFile(context, arrayOf(dst.absolutePath), null, null)
                 count++
@@ -219,10 +259,11 @@ class RecoveryViewModel(application: Application) : AndroidViewModel(application
     fun onRecoveryResult(success: Boolean) {
         _isLoading.value = false
         _pendingIntentSender.value = null
+        val hasManage = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
+                Environment.isExternalStorageManager()
         if (success) {
             _statusMessage.value = "$pendingCount archivo(s) recuperado(s) ✓"
-            scanDeletedMedia(Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
-                    Environment.isExternalStorageManager())
+            scanEverything(hasManage)
         } else {
             _statusMessage.value = "Recuperación cancelada"
         }

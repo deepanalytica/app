@@ -11,5 +11,6 @@ data class PhotoItem(
     val isVideo: Boolean = false,
     val isFromMiuiTrash: Boolean = false,
     val filePath: String? = null,
+    val sourceName: String = "",
     var isSelected: Boolean = false
 )

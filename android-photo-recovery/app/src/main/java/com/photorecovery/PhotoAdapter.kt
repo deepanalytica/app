@@ -22,12 +22,11 @@ class PhotoAdapter(
         val overlay: View = view.findViewById(R.id.selectedOverlay)
         val name: TextView = view.findViewById(R.id.textName)
         val playIcon: ImageView = view.findViewById(R.id.iconPlay)
+        val sourceTag: TextView = view.findViewById(R.id.textSource)
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
-        ViewHolder(
-            LayoutInflater.from(parent.context).inflate(R.layout.item_photo, parent, false)
-        )
+        ViewHolder(LayoutInflater.from(parent.context).inflate(R.layout.item_photo, parent, false))
 
     override fun getItemCount() = items.size
 
@@ -47,6 +46,13 @@ class PhotoAdapter(
         holder.overlay.visibility = if (item.isSelected) View.VISIBLE else View.GONE
         holder.playIcon.visibility = if (item.isVideo) View.VISIBLE else View.GONE
 
+        if (item.sourceName.isNotEmpty()) {
+            holder.sourceTag.text = item.sourceName
+            holder.sourceTag.visibility = View.VISIBLE
+        } else {
+            holder.sourceTag.visibility = View.GONE
+        }
+
         holder.itemView.setOnLongClickListener {
             if (!selectionMode) {
                 selectionMode = true
@@ -55,7 +61,6 @@ class PhotoAdapter(
             toggleItem(item)
             true
         }
-
         holder.itemView.setOnClickListener {
             if (selectionMode) toggleItem(item)
         }
@@ -65,10 +70,7 @@ class PhotoAdapter(
         item.isSelected = !item.isSelected
         notifyItemChanged(items.indexOf(item))
         val count = getSelectedCount()
-        if (count == 0) {
-            selectionMode = false
-            notifyDataSetChanged()
-        }
+        if (count == 0) { selectionMode = false; notifyDataSetChanged() }
         onSelectionChanged(count)
     }
 

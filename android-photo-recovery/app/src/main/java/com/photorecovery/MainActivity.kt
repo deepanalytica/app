@@ -31,7 +31,6 @@ class MainActivity : AppCompatActivity() {
 
     private val viewModel: RecoveryViewModel by viewModels()
     private lateinit var adapter: PhotoAdapter
-
     private lateinit var recyclerView: RecyclerView
     private lateinit var progressBar: ProgressBar
     private lateinit var textStatus: TextView
@@ -45,19 +44,13 @@ class MainActivity : AppCompatActivity() {
         ActivityResultContracts.RequestMultiplePermissions()
     ) { grants ->
         if (grants.values.all { it }) startScan()
-        else Snackbar.make(
-            recyclerView,
-            "Permiso denegado. Toca Ajustes para concederlo.",
-            Snackbar.LENGTH_LONG
-        ).setAction("Ajustes") { openAppSettings() }.show()
+        else Snackbar.make(recyclerView, "Permiso denegado", Snackbar.LENGTH_LONG)
+            .setAction("Ajustes") { openAppSettings() }.show()
     }
 
     private val manageStorageLauncher = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
-    ) {
-        // El usuario volvio de ajustes; re-escanear con el nuevo permiso
-        startScan()
-    }
+    ) { startScan() }
 
     private val recoveryLauncher = registerForActivityResult(
         ActivityResultContracts.StartIntentSenderForResult()
@@ -84,26 +77,22 @@ class MainActivity : AppCompatActivity() {
         recyclerView.adapter = adapter
 
         buttonScan.setOnClickListener { checkPermissionsAndScan() }
+        buttonAllFiles.setOnClickListener { requestManageStorage() }
         fabRecover.setOnClickListener { recoverSelected() }
-        buttonAllFiles.setOnClickListener { requestManageStoragePermission() }
 
-        // Mostrar boton MIUI solo si hace falta
-        updateManageStorageButton()
+        updateButtons()
         observeViewModel()
     }
 
     override fun onResume() {
         super.onResume()
-        updateManageStorageButton()
+        updateButtons()
     }
 
-    private fun updateManageStorageButton() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            buttonAllFiles.visibility =
-                if (Environment.isExternalStorageManager()) View.GONE else View.VISIBLE
-        } else {
-            buttonAllFiles.visibility = View.GONE
-        }
+    private fun updateButtons() {
+        buttonAllFiles.visibility =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && !Environment.isExternalStorageManager())
+                View.VISIBLE else View.GONE
     }
 
     private fun observeViewModel() {
@@ -115,23 +104,19 @@ class MainActivity : AppCompatActivity() {
         viewModel.isLoading.observe(this) { loading ->
             progressBar.visibility = if (loading) View.VISIBLE else View.GONE
             buttonScan.isEnabled = !loading
+            buttonAllFiles.isEnabled = !loading
         }
-        viewModel.statusMessage.observe(this) { msg -> textStatus.text = msg }
+        viewModel.statusMessage.observe(this) { textStatus.text = it }
         viewModel.pendingIntentSender.observe(this) { sender ->
             sender?.let { recoveryLauncher.launch(IntentSenderRequest.Builder(it).build()) }
         }
     }
 
     private fun checkPermissionsAndScan() {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {
-            Toast.makeText(this, "Requiere Android 11 o superior", Toast.LENGTH_LONG).show()
-            return
-        }
         val required = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU)
             arrayOf(Manifest.permission.READ_MEDIA_IMAGES, Manifest.permission.READ_MEDIA_VIDEO)
         else
             arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE)
-
         val allGranted = required.all {
             ContextCompat.checkSelfPermission(this, it) == PackageManager.PERMISSION_GRANTED
         }
@@ -141,21 +126,22 @@ class MainActivity : AppCompatActivity() {
     private fun startScan() {
         val hasManage = Build.VERSION.SDK_INT >= Build.VERSION_CODES.R &&
                 Environment.isExternalStorageManager()
-        viewModel.scanDeletedMedia(hasManage)
-        updateManageStorageButton()
+        viewModel.scanEverything(hasManage)
+        updateButtons()
     }
 
-    private fun requestManageStoragePermission() {
+    private fun requestManageStorage() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
             Snackbar.make(
                 recyclerView,
-                "Activa \"Permitir acceso a todos los archivos\" para buscar en la papelera de MIUI",
+                "Activa \"Permitir acceso a todos los archivos\" para ver WhatsApp, Telegram y mas",
                 Snackbar.LENGTH_LONG
             ).setAction("Activar") {
-                val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
-                    data = Uri.fromParts("package", packageName, null)
-                }
-                manageStorageLauncher.launch(intent)
+                manageStorageLauncher.launch(
+                    Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION).apply {
+                        data = Uri.fromParts("package", packageName, null)
+                    }
+                )
             }.show()
         }
     }
@@ -170,14 +156,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onSelectionChanged(count: Int) {
-        if (count > 0) {
-            fabRecover.show()
-            textSelectedCount.visibility = View.VISIBLE
-            textSelectedCount.text = "$count archivo(s) seleccionado(s)"
-        } else {
-            fabRecover.hide()
-            textSelectedCount.visibility = View.GONE
-        }
+        fabRecover.visibility = if (count > 0) View.VISIBLE else View.GONE
+        textSelectedCount.visibility = if (count > 0) View.VISIBLE else View.GONE
+        if (count > 0) textSelectedCount.text = "$count archivo(s) — toca el botón azul para guardar en DCIM/Recuperadas"
     }
 
     private fun openAppSettings() {
