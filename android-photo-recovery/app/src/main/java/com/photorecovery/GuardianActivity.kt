@@ -14,6 +14,7 @@ import android.provider.MediaStore
 import android.provider.Settings
 import android.view.MenuItem
 import android.view.View
+import android.view.WindowManager
 import android.widget.Button
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -40,9 +41,8 @@ class GuardianActivity : AppCompatActivity() {
     private lateinit var buttonGrantUsage: Button
     private lateinit var emptyView: View
 
-    private val dateFmt  = SimpleDateFormat("dd/MM HH:mm:ss", Locale.getDefault())
+    private val dateFmt = SimpleDateFormat("dd/MM HH:mm:ss", Locale.getDefault())
 
-    // Apps cuya apertura queremos registrar
     private val watchedApps = mapOf(
         "com.miui.gallery"                  to "🖼 Galería MIUI",
         "com.miui.album"                    to "🖼 Álbum MIUI",
@@ -68,13 +68,13 @@ class GuardianActivity : AppCompatActivity() {
     )
 
     private val sentFolders = listOf(
-        "WhatsApp/Media/WhatsApp Images/Sent"                                               to "WhatsApp",
-        "WhatsApp/Media/WhatsApp Video/Sent"                                                to "WhatsApp",
-        "Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Images/Sent"                    to "WhatsApp",
-        "Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Video/Sent"                     to "WhatsApp",
+        "WhatsApp/Media/WhatsApp Images/Sent"                                                  to "WhatsApp",
+        "WhatsApp/Media/WhatsApp Video/Sent"                                                   to "WhatsApp",
+        "Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Images/Sent"                       to "WhatsApp",
+        "Android/media/com.whatsapp/WhatsApp/Media/WhatsApp Video/Sent"                        to "WhatsApp",
         "Android/media/com.whatsapp.w4b/WhatsApp Business/Media/WhatsApp Business Images/Sent" to "WA Business",
-        "Telegram/Telegram Images"                                                          to "Telegram",
-        "Telegram/Telegram Video"                                                           to "Telegram"
+        "Telegram/Telegram Images"                                                             to "Telegram",
+        "Telegram/Telegram Video"                                                              to "Telegram"
     )
 
     private val screenshotFolders = listOf(
@@ -83,6 +83,13 @@ class GuardianActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Oculta el preview en el switcher de apps recientes
+        window.setFlags(
+            WindowManager.LayoutParams.FLAG_SECURE,
+            WindowManager.LayoutParams.FLAG_SECURE
+        )
+
         setContentView(R.layout.activity_guardian)
 
         setSupportActionBar(findViewById<Toolbar>(R.id.toolbarGuardian))
@@ -105,8 +112,8 @@ class GuardianActivity : AppCompatActivity() {
         recycler.layoutManager = LinearLayoutManager(this)
         recycler.adapter = adapter
 
-        buttonStart.setOnClickListener     { startGuarding() }
-        buttonCheck.setOnClickListener     { checkWhatHappened() }
+        buttonStart.setOnClickListener      { startGuarding() }
+        buttonCheck.setOnClickListener      { checkWhatHappened() }
         buttonGrantUsage.setOnClickListener {
             startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
         }
@@ -116,8 +123,6 @@ class GuardianActivity : AppCompatActivity() {
         super.onResume()
         refreshPermissionUI()
     }
-
-    // ------------------------------------------------------------------ permisos
 
     private fun hasUsagePerm(): Boolean {
         val ops  = getSystemService(APP_OPS_SERVICE) as AppOpsManager
@@ -133,30 +138,28 @@ class GuardianActivity : AppCompatActivity() {
         val filesOk = hasFilePerm()
 
         textPermUsage.text = if (usageOk)
-            "✅ Acceso al historial de apps: ACTIVADO"
+            "✅ Historial de apps: ACTIVADO"
         else
-            "❌ Acceso al historial de apps: DESACTIVADO (necesario para ver qué apps se abrieron)"
+            "❌ Historial de apps: DESACTIVADO — toca el botón rojo"
         textPermUsage.setTextColor(if (usageOk) 0xFF388E3C.toInt() else 0xFFD32F2F.toInt())
 
         textPermFiles.text = if (filesOk)
             "✅ Acceso a archivos: ACTIVADO"
         else
-            "⚠️ Acceso a archivos: DESACTIVADO (no se verán archivos enviados ni capturas)"
+            "⚠️ Acceso a archivos: DESACTIVADO (no se ven archivos enviados)"
         textPermFiles.setTextColor(if (filesOk) 0xFF388E3C.toInt() else 0xFFE65100.toInt())
 
         buttonGrantUsage.visibility = if (!usageOk) View.VISIBLE else View.GONE
 
         val since = prefs.getLong("guard_since", 0L)
         if (since > 0L) {
-            textSince.text    = "Vigilando desde: ${dateFmt.format(Date(since))}"
+            textSince.text        = "Vigilando desde: ${dateFmt.format(Date(since))}"
             buttonCheck.isEnabled = true
         } else {
-            textSince.text    = "Presiona Empezar y deja el teléfono desbloqueado"
+            textSince.text        = "Presiona Empezar y deja el teléfono"
             buttonCheck.isEnabled = false
         }
     }
-
-    // ------------------------------------------------------------------ control
 
     private fun startGuarding() {
         if (!hasUsagePerm()) {
@@ -165,11 +168,11 @@ class GuardianActivity : AppCompatActivity() {
         }
         val now = System.currentTimeMillis()
         prefs.edit().putLong("guard_since", now).apply()
-        textSince.text    = "Vigilando desde: ${dateFmt.format(Date(now))}"
+        textSince.text        = "Vigilando desde: ${dateFmt.format(Date(now))}"
         buttonCheck.isEnabled = true
-        textSummary.text  = "🔒 Listo. Deja el teléfono y regresa cuando quieras revisar."
+        textSummary.text      = "🔒 Listo. Deja el teléfono y regresa cuando quieras revisar."
         adapter.setEvents(emptyList())
-        emptyView.visibility = View.GONE
+        emptyView.visibility  = View.GONE
     }
 
     private fun checkWhatHappened() {
@@ -177,10 +180,9 @@ class GuardianActivity : AppCompatActivity() {
         if (since == 0L) return
 
         val events = mutableListOf<EventItem>()
-
         if (hasUsagePerm()) {
             events += getScreenEvents(since)
-            events += getAppSessions(since)     // con duración
+            events += getAppSessions(since)
         }
         if (hasFilePerm()) {
             events += getNewSentFiles(since)
@@ -188,97 +190,84 @@ class GuardianActivity : AppCompatActivity() {
         }
         events += getNewMedia(since)
 
-        val sorted = events.sortedBy { it.timestamp }
+        val sorted   = events.sortedBy { it.timestamp }
         adapter.setEvents(sorted)
         emptyView.visibility = if (sorted.isEmpty()) View.VISIBLE else View.GONE
 
-        val screens  = sorted.count { it.category == "screen" }
-        val apps     = sorted.count { it.category == "app" }
-        val sent     = sorted.count { it.category == "sent" }
-        val shots    = sorted.count { it.category == "screenshot" }
-        val photos   = sorted.count { it.category == "photo" }
+        val screens = sorted.count { it.category == "screen" }
+        val apps    = sorted.count { it.category == "app" }
+        val sent    = sorted.count { it.category == "sent" }
+        val shots   = sorted.count { it.category == "screenshot" }
+        val photos  = sorted.count { it.category == "photo" }
 
         textSummary.text = if (sorted.isEmpty())
             "✅ Sin actividad detectada desde ${dateFmt.format(Date(since))}"
         else buildString {
             appendLine("⚠️ ${sorted.size} evento(s) detectado(s):")
             if (screens > 0) appendLine("🔓 Pantalla encendida: $screens vez/veces")
-            if (apps    > 0) appendLine("📱 Apps abiertas: $apps (ver lista abajo)")
+            if (apps    > 0) appendLine("📱 Apps abiertas: $apps (con duración)")
             if (sent    > 0) appendLine("📤 Archivos ENVIADOS: $sent")
             if (shots   > 0) appendLine("📸 Capturas de pantalla: $shots")
             if (photos  > 0) appendLine("📷 Fotos/videos nuevos: $photos")
         }.trimEnd()
     }
 
-    // ------------------------------------------------------------------ eventos
-
     private fun getScreenEvents(since: Long): List<EventItem> {
         val usm    = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-        val events = usm.queryEvents(since, System.currentTimeMillis())
+        val raw    = usm.queryEvents(since, System.currentTimeMillis())
         val result = mutableListOf<EventItem>()
         val ev     = UsageEvents.Event()
-        while (events.hasNextEvent()) {
-            events.getNextEvent(ev)
-            if (ev.eventType == UsageEvents.Event.SCREEN_INTERACTIVE) {
+        while (raw.hasNextEvent()) {
+            raw.getNextEvent(ev)
+            if (ev.eventType == UsageEvents.Event.SCREEN_INTERACTIVE)
                 result += EventItem(
                     timestamp = ev.timeStamp,
                     title     = "🔓 Pantalla encendida",
-                    detail    = "Alguien desbloqueó el teléfono",
+                    detail    = "Alguien encendió la pantalla",
                     category  = "screen"
                 )
-            }
         }
         return result
     }
 
-    /** Empareja FOREGROUND/BACKGROUND para calcular cuánto tiempo estuvo cada app abierta */
     private fun getAppSessions(since: Long): List<EventItem> {
-        val usm    = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
-        val events = usm.queryEvents(since, System.currentTimeMillis())
-        val ev     = UsageEvents.Event()
-
-        // pkg -> timestamp de apertura
-        val openAt  = mutableMapOf<String, Long>()
+        val usm      = getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
+        val raw      = usm.queryEvents(since, System.currentTimeMillis())
+        val ev       = UsageEvents.Event()
+        val openAt   = mutableMapOf<String, Long>()
         val sessions = mutableListOf<EventItem>()
 
-        while (events.hasNextEvent()) {
-            events.getNextEvent(ev)
+        while (raw.hasNextEvent()) {
+            raw.getNextEvent(ev)
             val appName = watchedApps[ev.packageName] ?: continue
             when (ev.eventType) {
-                UsageEvents.Event.MOVE_TO_FOREGROUND -> {
+                UsageEvents.Event.MOVE_TO_FOREGROUND ->
                     openAt[ev.packageName] = ev.timeStamp
-                }
                 UsageEvents.Event.MOVE_TO_BACKGROUND -> {
-                    val start = openAt.remove(ev.packageName) ?: return@getNextEvent
-                    val dur   = ev.timeStamp - start
+                    val start = openAt.remove(ev.packageName) ?: continue
                     sessions += EventItem(
                         timestamp  = start,
-                        title      = "$appName abierta",
+                        title      = "$appName",
                         detail     = "Cerrada a las ${formatTime(ev.timeStamp)}",
                         category   = "app",
-                        durationMs = dur
+                        durationMs = ev.timeStamp - start
                     )
                 }
             }
         }
-        // apps que aún siguen abiertas
+        // apps todavía abiertas
         val now = System.currentTimeMillis()
         for ((pkg, start) in openAt) {
             val appName = watchedApps[pkg] ?: continue
             sessions += EventItem(
                 timestamp  = start,
-                title      = "$appName abierta (aún activa)",
+                title      = "$appName (aún activa)",
                 detail     = "Todavía en uso",
                 category   = "app",
                 durationMs = now - start
             )
         }
         return sessions
-    }
-
-    // Workaround para evitar recursión en la llamada a getNextEvent
-    private fun UsageEvents.getNextEvent(ev: UsageEvents.Event): Unit {
-        this.getNextEvent(ev)
     }
 
     private fun getNewSentFiles(since: Long): List<EventItem> {
@@ -310,7 +299,7 @@ class GuardianActivity : AppCompatActivity() {
                 if (file.isFile && file.lastModified() >= since)
                     result += EventItem(
                         timestamp = file.lastModified(),
-                        title     = "📸 Captura de pantalla",
+                        title     = "📸 Captura de pantalla tomada",
                         detail    = file.name,
                         category  = "screenshot"
                     )
@@ -320,11 +309,10 @@ class GuardianActivity : AppCompatActivity() {
     }
 
     private fun getNewMedia(since: Long): List<EventItem> {
-        val result   = mutableListOf<EventItem>()
-        val sinceS   = since / 1000
-        val sel      = "${MediaStore.MediaColumns.DATE_ADDED} >= ?"
-        val args     = arrayOf(sinceS.toString())
-        val proj     = arrayOf(MediaStore.MediaColumns.DISPLAY_NAME, MediaStore.MediaColumns.DATE_ADDED)
+        val result = mutableListOf<EventItem>()
+        val sel    = "${MediaStore.MediaColumns.DATE_ADDED} >= ?"
+        val args   = arrayOf((since / 1000).toString())
+        val proj   = arrayOf(MediaStore.MediaColumns.DISPLAY_NAME, MediaStore.MediaColumns.DATE_ADDED)
 
         fun query(uri: android.net.Uri, label: String) {
             contentResolver.query(uri, proj, sel, args, null)?.use { c ->
@@ -344,14 +332,8 @@ class GuardianActivity : AppCompatActivity() {
         return result
     }
 
-    // ------------------------------------------------------------------ util
-
     private fun formatTime(ms: Long) =
         SimpleDateFormat("HH:mm:ss", Locale.getDefault()).format(Date(ms))
-
-    // Eliminar la función de extensión que causaba recursión infinita
-    private fun UsageEvents.getNextEvent(ev: UsageEvents.Event): Boolean =
-        this.getNextEvent(ev)
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
         if (item.itemId == android.R.id.home) { finish(); return true }

@@ -12,6 +12,7 @@ import android.provider.Settings
 import android.view.Menu
 import android.view.MenuItem
 import android.view.View
+import android.view.WindowManager
 import android.widget.Button
 import android.widget.ProgressBar
 import android.widget.TextView
@@ -60,25 +61,32 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        // Oculta el contenido en el switcher de apps y evita capturas de pantalla
+        window.setFlags(
+            WindowManager.LayoutParams.FLAG_SECURE,
+            WindowManager.LayoutParams.FLAG_SECURE
+        )
+
         setContentView(R.layout.activity_main)
         setSupportActionBar(findViewById<Toolbar>(R.id.toolbar))
 
-        recyclerView = findViewById(R.id.recyclerView)
-        progressBar = findViewById(R.id.progressBar)
-        textStatus = findViewById(R.id.textStatus)
-        textSelectedCount = findViewById(R.id.textSelectedCount)
-        layoutEmpty = findViewById(R.id.layoutEmpty)
-        fabRecover = findViewById(R.id.fabRecover)
-        buttonScan = findViewById(R.id.buttonScan)
-        buttonAllFiles = findViewById(R.id.buttonAllFiles)
+        recyclerView       = findViewById(R.id.recyclerView)
+        progressBar        = findViewById(R.id.progressBar)
+        textStatus         = findViewById(R.id.textStatus)
+        textSelectedCount  = findViewById(R.id.textSelectedCount)
+        layoutEmpty        = findViewById(R.id.layoutEmpty)
+        fabRecover         = findViewById(R.id.fabRecover)
+        buttonScan         = findViewById(R.id.buttonScan)
+        buttonAllFiles     = findViewById(R.id.buttonAllFiles)
 
         adapter = PhotoAdapter { count -> onSelectionChanged(count) }
         recyclerView.layoutManager = GridLayoutManager(this, 3)
         recyclerView.adapter = adapter
 
-        buttonScan.setOnClickListener { checkPermissionsAndScan() }
+        buttonScan.setOnClickListener     { checkPermissionsAndScan() }
         buttonAllFiles.setOnClickListener { requestManageStorage() }
-        fabRecover.setOnClickListener { recoverSelected() }
+        fabRecover.setOnClickListener     { recoverSelected() }
         findViewById<Button>(R.id.buttonGuardian).setOnClickListener {
             startActivity(Intent(this, GuardianActivity::class.java))
         }
@@ -106,7 +114,7 @@ class MainActivity : AppCompatActivity() {
         }
         viewModel.isLoading.observe(this) { loading ->
             progressBar.visibility = if (loading) View.VISIBLE else View.GONE
-            buttonScan.isEnabled = !loading
+            buttonScan.isEnabled   = !loading
         }
         viewModel.statusMessage.observe(this) { textStatus.text = it }
         viewModel.pendingIntentSender.observe(this) { sender ->
@@ -158,9 +166,10 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun onSelectionChanged(count: Int) {
-        fabRecover.visibility = if (count > 0) View.VISIBLE else View.GONE
+        fabRecover.visibility        = if (count > 0) View.VISIBLE else View.GONE
         textSelectedCount.visibility = if (count > 0) View.VISIBLE else View.GONE
-        if (count > 0) textSelectedCount.text = "$count archivo(s) — toca el botón azul para guardar en DCIM/Recuperadas"
+        if (count > 0)
+            textSelectedCount.text = "$count archivo(s) — toca el botón azul para guardar en DCIM/Recuperadas"
     }
 
     private fun openAppSettings() {
@@ -176,7 +185,7 @@ class MainActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: MenuItem) = when (item.itemId) {
         R.id.action_select_all -> { adapter.selectAll(); true }
-        R.id.action_clear -> { adapter.clearSelection(); true }
-        else -> super.onOptionsItemSelected(item)
+        R.id.action_clear      -> { adapter.clearSelection(); true }
+        else                   -> super.onOptionsItemSelected(item)
     }
 }
