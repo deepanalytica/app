@@ -44,7 +44,6 @@
                     android:textSize="13sp"
                     android:textColor="@color/textSecondary" />
 
-                <!-- Paso 1: permiso para WhatsApp/MIUI (solo si falta) -->
                 <Button
                     android:id="@+id/buttonAllFiles"
                     android:layout_width="match_parent"
@@ -55,7 +54,6 @@
                     style="@style/Widget.MaterialComponents.Button"
                     android:visibility="gone" />
 
-                <!-- Paso 2: escanear todo -->
                 <Button
                     android:id="@+id/buttonScan"
                     android:layout_width="match_parent"
@@ -63,6 +61,16 @@
                     android:layout_marginTop="6dp"
                     android:text="@string/scan_button"
                     android:backgroundTint="@color/colorPrimary"
+                    style="@style/Widget.MaterialComponents.Button" />
+
+                <!-- Boton Guardian -->
+                <Button
+                    android:id="@+id/buttonGuardian"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:text="🔒 Guardián: ¿Quién usó mi teléfono?"
+                    android:backgroundTint="@color/colorGuardian"
                     style="@style/Widget.MaterialComponents.Button" />
 
                 <ProgressBar
@@ -104,14 +112,12 @@
             android:orientation="vertical"
             android:gravity="center"
             android:visibility="gone">
-
             <ImageView
                 android:layout_width="72dp"
                 android:layout_height="72dp"
                 android:src="@drawable/ic_no_photos"
                 android:tint="@color/textSecondary"
                 android:contentDescription="@null" />
-
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

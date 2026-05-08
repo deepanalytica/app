@@ -4,6 +4,7 @@
     <color name="colorPrimaryDark">#0D47A1</color>
     <color name="colorAccent">#0097A7</color>
     <color name="colorMiui">#E65100</color>
+    <color name="colorGuardian">#2E7D32</color>
     <color name="background">#F3F6FA</color>
     <color name="textSecondary">#757575</color>
     <color name="white">#FFFFFF</color>

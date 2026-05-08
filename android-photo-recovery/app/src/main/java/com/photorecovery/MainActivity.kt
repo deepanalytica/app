@@ -79,6 +79,9 @@ class MainActivity : AppCompatActivity() {
         buttonScan.setOnClickListener { checkPermissionsAndScan() }
         buttonAllFiles.setOnClickListener { requestManageStorage() }
         fabRecover.setOnClickListener { recoverSelected() }
+        findViewById<Button>(R.id.buttonGuardian).setOnClickListener {
+            startActivity(Intent(this, GuardianActivity::class.java))
+        }
 
         updateButtons()
         observeViewModel()
@@ -104,7 +107,6 @@ class MainActivity : AppCompatActivity() {
         viewModel.isLoading.observe(this) { loading ->
             progressBar.visibility = if (loading) View.VISIBLE else View.GONE
             buttonScan.isEnabled = !loading
-            buttonAllFiles.isEnabled = !loading
         }
         viewModel.statusMessage.observe(this) { textStatus.text = it }
         viewModel.pendingIntentSender.observe(this) { sender ->
