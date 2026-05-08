@@ -5,13 +5,15 @@
     android:layout_height="wrap_content"
     android:orientation="horizontal"
     android:padding="10dp"
-    android:gravity="center_vertical">
+    android:gravity="top"
+    android:background="?attr/selectableItemBackground">
 
-    <!-- Punto de color indicador de categoria -->
+    <!-- Indicador de color -->
     <View
         android:id="@+id/dot"
         android:layout_width="10dp"
         android:layout_height="10dp"
+        android:layout_marginTop="3dp"
         android:layout_marginEnd="12dp"
         android:background="@drawable/ic_dot" />
 
@@ -21,11 +23,12 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginEnd="10dp"
-        android:textSize="12sp"
+        android:textSize="11sp"
         android:textStyle="bold"
         android:textColor="@color/textSecondary"
         android:fontFamily="monospace" />
 
+    <!-- Contenido -->
     <LinearLayout
         android:layout_width="0dp"
         android:layout_height="wrap_content"
@@ -39,6 +42,16 @@
             android:textSize="13sp"
             android:textStyle="bold"
             android:textColor="#212121" />
+
+        <!-- Duración (solo para apps) -->
+        <TextView
+            android:id="@+id/textDuration"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:textSize="12sp"
+            android:textColor="#6A1B9A"
+            android:textStyle="bold"
+            android:visibility="gone" />
 
         <TextView
             android:id="@+id/textDetail"

@@ -4,5 +4,6 @@ data class EventItem(
     val timestamp: Long,
     val title: String,
     val detail: String,
-    val category: String   // "app", "sent", "photo", "screenshot", "screen"
+    val category: String,
+    val durationMs: Long = 0L
 )

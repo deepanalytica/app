@@ -17,128 +17,170 @@
             app:titleTextColor="@color/white" />
     </com.google.android.material.appbar.AppBarLayout>
 
-    <LinearLayout
+    <androidx.core.widget.NestedScrollView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
         app:layout_behavior="@string/appbar_scrolling_view_behavior">
 
-        <!-- Panel de control -->
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_margin="12dp"
-            app:cardCornerRadius="12dp"
-            app:cardElevation="4dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="16dp">
-
-                <!-- Permiso de estadísticas (si falta) -->
-                <Button
-                    android:id="@+id/buttonUsagePerm"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:text="⚠️ Activar permiso de uso de apps (requerido)"
-                    android:backgroundTint="@color/colorMiui"
-                    style="@style/Widget.MaterialComponents.Button"
-                    android:visibility="gone" />
-
-                <TextView
-                    android:id="@+id/textSince"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:textSize="13sp"
-                    android:textColor="@color/textSecondary"
-                    android:text="Presiona Empezar y deja el teléfono" />
-
-                <!-- Paso 1: iniciar vigilancia -->
-                <Button
-                    android:id="@+id/buttonStartGuard"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="10dp"
-                    android:text="🔒 Empezar a vigilar AHORA"
-                    android:backgroundTint="@color/colorGuardian"
-                    style="@style/Widget.MaterialComponents.Button" />
-
-                <!-- Paso 2: ver resultados -->
-                <Button
-                    android:id="@+id/buttonCheckNow"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="6dp"
-                    android:text="🔍 Ver qué pasó en mi teléfono"
-                    android:backgroundTint="@color/colorPrimary"
-                    android:enabled="false"
-                    style="@style/Widget.MaterialComponents.Button" />
-
-                <TextView
-                    android:id="@+id/textSummary"
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="8dp"
-                    android:textSize="13sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/colorGuardian" />
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Leyenda de colores -->
         <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:paddingHorizontal="14dp"
-            android:paddingBottom="4dp">
-
-            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
-                android:layout_weight="1" android:textSize="10sp" android:textColor="#388E3C"
-                android:text="● Pantalla" />
-            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
-                android:layout_weight="1" android:textSize="10sp" android:textColor="#6A1B9A"
-                android:text="● App abierta" />
-            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
-                android:layout_weight="1" android:textSize="10sp" android:textColor="#D32F2F"
-                android:text="● Enviado" />
-            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
-                android:layout_weight="1" android:textSize="10sp" android:textColor="#E65100"
-                android:text="● Captura" />
-            <TextView android:layout_width="0dp" android:layout_height="wrap_content"
-                android:layout_weight="1" android:textSize="10sp" android:textColor="#1565C0"
-                android:text="● Foto/Video" />
-        </LinearLayout>
-
-        <!-- Estado vacío -->
-        <LinearLayout
-            android:id="@+id/emptyGuardian"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:gravity="center"
-            android:padding="32dp"
-            android:visibility="gone">
-            <TextView
-                android:layout_width="wrap_content"
+            android:padding="12dp">
+
+            <!-- === PERMISOS === -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="✅ No se detectó actividad"
-                android:textSize="16sp"
-                android:textColor="#388E3C"
-                android:textStyle="bold" />
+                android:layout_marginBottom="10dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="3dp">
+
+                <LinearLayout
+                    android:id="@+id/layoutPerms"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="14dp">
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="PERMISOS REQUERIDOS"
+                        android:textSize="11sp"
+                        android:textStyle="bold"
+                        android:textColor="@color/textSecondary"
+                        android:letterSpacing="0.1" />
+
+                    <!-- Permiso 1: usage stats -->
+                    <TextView
+                        android:id="@+id/textPermUsage"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:textSize="13sp"
+                        android:textStyle="bold" />
+
+                    <Button
+                        android:id="@+id/buttonGrantUsage"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="🔴 Activar permiso de historial de apps (OBLIGATORIO)"
+                        android:backgroundTint="#D32F2F"
+                        style="@style/Widget.MaterialComponents.Button"
+                        android:visibility="gone" />
+
+                    <!-- Permiso 2: storage -->
+                    <TextView
+                        android:id="@+id/textPermFiles"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:textSize="13sp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- === CONTROL === -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="10dp"
+                app:cardCornerRadius="12dp"
+                app:cardElevation="3dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="14dp">
+
+                    <TextView
+                        android:id="@+id/textSince"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:textSize="13sp"
+                        android:textColor="@color/textSecondary" />
+
+                    <Button
+                        android:id="@+id/buttonStartGuard"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="🔒 Empezar a vigilar AHORA"
+                        android:backgroundTint="@color/colorGuardian"
+                        style="@style/Widget.MaterialComponents.Button" />
+
+                    <Button
+                        android:id="@+id/buttonCheckNow"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:text="🔍 Ver qué pasó en mi teléfono"
+                        android:backgroundTint="@color/colorPrimary"
+                        android:enabled="false"
+                        style="@style/Widget.MaterialComponents.Button" />
+
+                    <TextView
+                        android:id="@+id/textSummary"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="8dp"
+                        android:textSize="13sp"
+                        android:lineSpacingMultiplier="1.3"
+                        android:textStyle="bold"
+                        android:textColor="@color/colorGuardian" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Leyenda -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:paddingBottom="4dp">
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:textSize="10sp" android:textColor="#388E3C"
+                    android:text="● Pantalla" />
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:textSize="10sp" android:textColor="#6A1B9A"
+                    android:text="● App + dur." />
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:textSize="10sp" android:textColor="#D32F2F"
+                    android:text="● Enviado" />
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:textSize="10sp" android:textColor="#E65100"
+                    android:text="● Captura" />
+                <TextView android:layout_width="0dp" android:layout_height="wrap_content"
+                    android:layout_weight="1" android:textSize="10sp" android:textColor="#1565C0"
+                    android:text="● Foto/vid" />
+            </LinearLayout>
+
+            <!-- Estado vacío -->
+            <LinearLayout
+                android:id="@+id/emptyGuardian"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:gravity="center"
+                android:padding="24dp"
+                android:visibility="gone">
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="✅ Sin actividad detectada"
+                    android:textSize="16sp"
+                    android:textColor="#388E3C"
+                    android:textStyle="bold" />
+            </LinearLayout>
+
+            <!-- Timeline -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/recyclerEvents"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:nestedScrollingEnabled="false" />
+
         </LinearLayout>
-
-        <!-- Timeline de eventos -->
-        <androidx.recyclerview.widget.RecyclerView
-            android:id="@+id/recyclerEvents"
-            android:layout_width="match_parent"
-            android:layout_height="0dp"
-            android:layout_weight="1"
-            android:padding="8dp"
-            android:clipToPadding="false" />
-
-    </LinearLayout>
+    </androidx.core.widget.NestedScrollView>
 </androidx.coordinatorlayout.widget.CoordinatorLayout>
