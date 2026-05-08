@@ -1,6 +1,8 @@
 package com.photorecovery
 
 import android.app.AppOpsManager
+import android.app.usage.UsageEvents
+import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
@@ -18,8 +20,6 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import app.usage.UsageEvents
-import app.usage.UsageStatsManager
 import java.io.File
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -38,7 +38,6 @@ class GuardianActivity : AppCompatActivity() {
 
     private val dateFmt = SimpleDateFormat("dd/MM HH:mm:ss", Locale.getDefault())
 
-    // Apps relevantes a vigilar
     private val watchedApps = mapOf(
         "com.miui.gallery"                    to "🖼 Galería MIUI",
         "com.google.android.apps.photos"      to "🖼 Google Fotos",
@@ -64,7 +63,6 @@ class GuardianActivity : AppCompatActivity() {
         "com.android.dialer"                  to "📞 Teléfono"
     )
 
-    // Carpetas de archivos enviados
     private val sentFolders = listOf(
         "WhatsApp/Media/WhatsApp Images/Sent" to "WhatsApp",
         "WhatsApp/Media/WhatsApp Video/Sent" to "WhatsApp",
@@ -75,7 +73,6 @@ class GuardianActivity : AppCompatActivity() {
         "Telegram/Telegram Video" to "Telegram"
     )
 
-    // Carpetas de capturas
     private val screenshotFolders = listOf(
         "MIUI/Screenshots",
         "Pictures/Screenshots",
@@ -91,21 +88,20 @@ class GuardianActivity : AppCompatActivity() {
         supportActionBar?.title = "Guardián del teléfono"
 
         prefs = getSharedPreferences("guardian", Context.MODE_PRIVATE)
-
-        textSince = findViewById(R.id.textSince)
-        textSummary = findViewById(R.id.textSummary)
-        buttonStart = findViewById(R.id.buttonStartGuard)
-        buttonCheck = findViewById(R.id.buttonCheckNow)
+        textSince       = findViewById(R.id.textSince)
+        textSummary     = findViewById(R.id.textSummary)
+        buttonStart     = findViewById(R.id.buttonStartGuard)
+        buttonCheck     = findViewById(R.id.buttonCheckNow)
         buttonUsagePerm = findViewById(R.id.buttonUsagePerm)
-        emptyView = findViewById(R.id.emptyGuardian)
+        emptyView       = findViewById(R.id.emptyGuardian)
 
         val recycler = findViewById<RecyclerView>(R.id.recyclerEvents)
         adapter = EventAdapter()
         recycler.layoutManager = LinearLayoutManager(this)
         recycler.adapter = adapter
 
-        buttonStart.setOnClickListener { startGuarding() }
-        buttonCheck.setOnClickListener { checkWhatHappened() }
+        buttonStart.setOnClickListener     { startGuarding() }
+        buttonCheck.setOnClickListener     { checkWhatHappened() }
         buttonUsagePerm.setOnClickListener {
             startActivity(Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS))
         }
@@ -119,11 +115,9 @@ class GuardianActivity : AppCompatActivity() {
     }
 
     private fun updateUI() {
-        val hasPerm = hasUsageStatsPermission()
-        buttonUsagePerm.visibility = if (!hasPerm) View.VISIBLE else View.GONE
-
+        buttonUsagePerm.visibility = if (!hasUsageStatsPermission()) View.VISIBLE else View.GONE
         val since = prefs.getLong("guard_since", 0L)
-        if (since > 0) {
+        if (since > 0L) {
             textSince.text = "Vigilando desde: ${dateFmt.format(Date(since))}"
             buttonCheck.isEnabled = true
         } else {
@@ -148,37 +142,37 @@ class GuardianActivity : AppCompatActivity() {
 
         val events = mutableListOf<EventItem>()
 
-        // 1. Pantalla encendida (alguien tomó el teléfono)
         if (hasUsageStatsPermission()) {
             events += getScreenOnEvents(since)
             events += getAppOpenEvents(since)
         }
 
-        // 2. Archivos enviados por WhatsApp/Telegram
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R && Environment.isExternalStorageManager()) {
             events += getNewSentFiles(since)
             events += getNewScreenshots(since)
         }
 
-        // 3. Nuevas fotos tomadas con la cámara
-        events += getNewPhotosFromCamera(since)
+        events += getNewMediaFromCamera(since)
 
         val sorted = events.sortedBy { it.timestamp }
         adapter.setEvents(sorted)
         emptyView.visibility = if (sorted.isEmpty()) View.VISIBLE else View.GONE
 
-        val appCount = sorted.count { it.category == "app" }
-        val sentCount = sorted.count { it.category == "sent" }
-        val shotCount = sorted.count { it.category == "screenshot" }
-        val photoCount = sorted.count { it.category == "photo" }
         val screenCount = sorted.count { it.category == "screen" }
+        val appCount    = sorted.count { it.category == "app" }
+        val sentCount   = sorted.count { it.category == "sent" }
+        val shotCount   = sorted.count { it.category == "screenshot" }
+        val photoCount  = sorted.count { it.category == "photo" }
 
         textSummary.text = if (sorted.isEmpty())
             "✅ Nadie usó el teléfono desde las ${dateFmt.format(Date(since))}"
         else
-            "⚠️ ${sorted.size} evento(s): $screenCount veces encendido | " +
-                    "$appCount apps abiertas | $sentCount archivos enviados | " +
-                    "$photoCount fotos tomadas | $shotCount capturas"
+            "⚠️ ${sorted.size} evento(s) detectado(s):\n" +
+            "🔓 Pantalla encendida $screenCount vez/veces\n" +
+            "📱 Apps abiertas: $appCount\n" +
+            "📤 Archivos enviados: $sentCount\n" +
+            "📸 Capturas de pantalla: $shotCount\n" +
+            "📷 Fotos/videos nuevos: $photoCount"
     }
 
     private fun hasUsageStatsPermission(): Boolean {
@@ -200,7 +194,7 @@ class GuardianActivity : AppCompatActivity() {
                 result.add(EventItem(
                     timestamp = ev.timeStamp,
                     title = "🔓 Pantalla encendida",
-                    detail = "Alguien encendió la pantalla",
+                    detail = "Alguien encendió la pantalla del teléfono",
                     category = "screen"
                 ))
             }
@@ -215,22 +209,16 @@ class GuardianActivity : AppCompatActivity() {
         val ev = UsageEvents.Event()
         while (usageEvents.hasNextEvent()) {
             usageEvents.getNextEvent(ev)
-            if (ev.eventType == UsageEvents.Event.MOVE_TO_FOREGROUND) {
-                val appName = watchedApps[ev.packageName] ?: return@getNextEvent
-                result.add(EventItem(
-                    timestamp = ev.timeStamp,
-                    title = "$appName abierta",
-                    detail = ev.packageName,
-                    category = "app"
-                ))
-            }
+            if (ev.eventType != UsageEvents.Event.MOVE_TO_FOREGROUND) continue
+            val appName = watchedApps[ev.packageName] ?: continue
+            result.add(EventItem(
+                timestamp = ev.timeStamp,
+                title = "$appName abierta",
+                detail = ev.packageName,
+                category = "app"
+            ))
         }
         return result
-    }
-
-    // Workaround: UsageEvents.getNextEvent no tiene extension, usar label
-    private fun UsageEvents.getNextEvent(ev: UsageEvents.Event): Boolean {
-        return this.getNextEvent(ev)
     }
 
     private fun getNewSentFiles(since: Long): List<EventItem> {
@@ -273,20 +261,21 @@ class GuardianActivity : AppCompatActivity() {
         return result
     }
 
-    private fun getNewPhotosFromCamera(since: Long): List<EventItem> {
+    private fun getNewMediaFromCamera(since: Long): List<EventItem> {
         val result = mutableListOf<EventItem>()
+        val sinceSeconds = since / 1000
+        val selection = "${MediaStore.MediaColumns.DATE_ADDED} >= ?"
+        val args = arrayOf(sinceSeconds.toString())
         val projection = arrayOf(
-            MediaStore.Images.Media.DISPLAY_NAME,
-            MediaStore.Images.Media.DATE_ADDED
+            MediaStore.MediaColumns.DISPLAY_NAME,
+            MediaStore.MediaColumns.DATE_ADDED
         )
-        val selection = "${MediaStore.Images.Media.DATE_ADDED} >= ?"
-        val args = arrayOf((since / 1000).toString())
+
         contentResolver.query(
-            MediaStore.Images.Media.EXTERNAL_CONTENT_URI,
-            projection, selection, args, null
+            MediaStore.Images.Media.EXTERNAL_CONTENT_URI, projection, selection, args, null
         )?.use { cursor ->
-            val nameCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DISPLAY_NAME)
-            val dateCol = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATE_ADDED)
+            val nameCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME)
+            val dateCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DATE_ADDED)
             while (cursor.moveToNext()) {
                 result.add(EventItem(
                     timestamp = cursor.getLong(dateCol) * 1000,
@@ -296,13 +285,12 @@ class GuardianActivity : AppCompatActivity() {
                 ))
             }
         }
-        // Videos también
+
         contentResolver.query(
-            MediaStore.Video.Media.EXTERNAL_CONTENT_URI,
-            projection, selection, args, null
+            MediaStore.Video.Media.EXTERNAL_CONTENT_URI, projection, selection, args, null
         )?.use { cursor ->
-            val nameCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DISPLAY_NAME)
-            val dateCol = cursor.getColumnIndexOrThrow(MediaStore.Video.Media.DATE_ADDED)
+            val nameCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME)
+            val dateCol = cursor.getColumnIndexOrThrow(MediaStore.MediaColumns.DATE_ADDED)
             while (cursor.moveToNext()) {
                 result.add(EventItem(
                     timestamp = cursor.getLong(dateCol) * 1000,
