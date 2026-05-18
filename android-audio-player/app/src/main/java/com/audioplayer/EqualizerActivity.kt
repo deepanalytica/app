@@ -54,8 +54,7 @@ class EqualizerActivity : AppCompatActivity() {
         val bands = eqMgr.bandCount
         val range = eqMgr.bandLevelRange
         val min = range[0].toInt()
-        val max = range[1].toInt()
-        val span = max - min
+        val span = range[1].toInt() - min
 
         val seekbars = listOf(
             binding.seekBand1,
