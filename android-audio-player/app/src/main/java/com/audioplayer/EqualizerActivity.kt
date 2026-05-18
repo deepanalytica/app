@@ -30,14 +30,19 @@ class EqualizerActivity : AppCompatActivity() {
 
     private fun setupPresetChips() {
         EQ_PRESETS.forEach { preset ->
-            val chip = Chip(this, null, com.google.android.material.R.attr.chipStyle).apply {
+            val chip = Chip(this).apply {
                 text = preset.name
                 isCheckable = true
                 setTextColor(getColor(R.color.white))
-                chipBackgroundColor = getColorStateList(R.color.chip_selector)
+                setChipBackgroundColorResource(R.color.surface)
                 setOnClickListener {
                     eq?.applyPreset(preset)
                     refreshBandSliders()
+                    // visually mark selected chip
+                    (binding.chipGroupPresets.parent as? android.view.View)?.invalidate()
+                }
+                setOnCheckedChangeListener { _, isChecked ->
+                    setChipBackgroundColorResource(if (isChecked) R.color.primary else R.color.surface)
                 }
             }
             binding.chipGroupPresets.addView(chip)
