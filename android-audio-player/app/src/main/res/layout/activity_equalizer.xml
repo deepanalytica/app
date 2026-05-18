@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- Preset Chips -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Presets"
+            android:textColor="@color/textSecondary"
+            android:textSize="12sp"
+            android:layout_marginBottom="8dp"/>
+
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none"
+            android:layout_marginBottom="24dp">
+            <com.google.android.material.chip.ChipGroup
+                android:id="@+id/chipGroupPresets"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:padding="4dp"/>
+        </HorizontalScrollView>
+
+        <!-- EQ Bands -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Ecualizador de 5 bandas"
+            android:textColor="@color/white"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp"/>
+
+        <!-- Bands Row -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="24dp">
+
+            <!-- Band 1 -->
+            <LinearLayout android:id="@+id/band1Container" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+                <TextView android:id="@+id/tvBand1Value" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0 dB" android:textColor="@color/primary" android:textSize="11sp"/>
+                <SeekBar android:id="@+id/seekBand1" android:layout_width="120dp" android:layout_height="wrap_content" android:rotation="270" android:max="3000" android:progress="1500" android:progressTint="@color/primary" android:thumbTint="@color/primary"/>
+                <TextView android:id="@+id/tvBand1Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="60Hz" android:textColor="@color/textSecondary" android:textSize="11sp"/>
+            </LinearLayout>
+
+            <!-- Band 2 -->
+            <LinearLayout android:id="@+id/band2Container" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+                <TextView android:id="@+id/tvBand2Value" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0 dB" android:textColor="@color/primary" android:textSize="11sp"/>
+                <SeekBar android:id="@+id/seekBand2" android:layout_width="120dp" android:layout_height="wrap_content" android:rotation="270" android:max="3000" android:progress="1500" android:progressTint="@color/primary" android:thumbTint="@color/primary"/>
+                <TextView android:id="@+id/tvBand2Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="230Hz" android:textColor="@color/textSecondary" android:textSize="11sp"/>
+            </LinearLayout>
+
+            <!-- Band 3 -->
+            <LinearLayout android:id="@+id/band3Container" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+                <TextView android:id="@+id/tvBand3Value" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0 dB" android:textColor="@color/primary" android:textSize="11sp"/>
+                <SeekBar android:id="@+id/seekBand3" android:layout_width="120dp" android:layout_height="wrap_content" android:rotation="270" android:max="3000" android:progress="1500" android:progressTint="@color/primary" android:thumbTint="@color/primary"/>
+                <TextView android:id="@+id/tvBand3Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="910Hz" android:textColor="@color/textSecondary" android:textSize="11sp"/>
+            </LinearLayout>
+
+            <!-- Band 4 -->
+            <LinearLayout android:id="@+id/band4Container" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+                <TextView android:id="@+id/tvBand4Value" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0 dB" android:textColor="@color/primary" android:textSize="11sp"/>
+                <SeekBar android:id="@+id/seekBand4" android:layout_width="120dp" android:layout_height="wrap_content" android:rotation="270" android:max="3000" android:progress="1500" android:progressTint="@color/primary" android:thumbTint="@color/primary"/>
+                <TextView android:id="@+id/tvBand4Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="3.6kHz" android:textColor="@color/textSecondary" android:textSize="11sp"/>
+            </LinearLayout>
+
+            <!-- Band 5 -->
+            <LinearLayout android:id="@+id/band5Container" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:orientation="vertical" android:gravity="center">
+                <TextView android:id="@+id/tvBand5Value" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0 dB" android:textColor="@color/primary" android:textSize="11sp"/>
+                <SeekBar android:id="@+id/seekBand5" android:layout_width="120dp" android:layout_height="wrap_content" android:rotation="270" android:max="3000" android:progress="1500" android:progressTint="@color/primary" android:thumbTint="@color/primary"/>
+                <TextView android:id="@+id/tvBand5Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="14kHz" android:textColor="@color/textSecondary" android:textSize="11sp"/>
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- Effects -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Efectos"
+            android:textColor="@color/white"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:layout_marginBottom="16dp"/>
+
+        <!-- Bass Boost -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginBottom="16dp">
+            <TextView android:layout_width="100dp" android:layout_height="wrap_content" android:text="Graves+" android:textColor="@color/white" android:textSize="14sp"/>
+            <SeekBar android:id="@+id/seekBass" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:max="1000" android:progressTint="@color/accent" android:thumbTint="@color/accent"/>
+            <TextView android:id="@+id/tvBassValue" android:layout_width="40dp" android:layout_height="wrap_content" android:text="0" android:textColor="@color/accent" android:textSize="14sp" android:gravity="end"/>
+        </LinearLayout>
+
+        <!-- Virtualizer -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginBottom="16dp">
+            <TextView android:layout_width="100dp" android:layout_height="wrap_content" android:text="Virtual." android:textColor="@color/white" android:textSize="14sp"/>
+            <SeekBar android:id="@+id/seekVirtualizer" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:max="1000" android:progressTint="@color/accent" android:thumbTint="@color/accent"/>
+            <TextView android:id="@+id/tvVirtualizerValue" android:layout_width="40dp" android:layout_height="wrap_content" android:text="0" android:textColor="@color/accent" android:textSize="14sp" android:gravity="end"/>
+        </LinearLayout>
+
+        <!-- Compressor -->
+        <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" android:gravity="center_vertical" android:layout_marginBottom="16dp">
+            <TextView android:layout_width="100dp" android:layout_height="wrap_content" android:text="Compr." android:textColor="@color/white" android:textSize="14sp"/>
+            <SeekBar android:id="@+id/seekCompressor" android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1" android:max="20" android:progressTint="@color/accent" android:thumbTint="@color/accent"/>
+            <TextView android:id="@+id/tvCompressorValue" android:layout_width="40dp" android:layout_height="wrap_content" android:text="OFF" android:textColor="@color/accent" android:textSize="12sp" android:gravity="end"/>
+        </LinearLayout>
+
+    </LinearLayout>
+</ScrollView>

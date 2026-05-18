@@ -1,0 +1,239 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/background"
+    android:fillViewport="true">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="16dp">
+
+        <!-- Header -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center_vertical"
+            android:layout_marginBottom="24dp">
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:text="AudioPlayer"
+                android:textColor="@color/white"
+                android:textSize="22sp"
+                android:textStyle="bold"/>
+
+            <Button
+                android:id="@+id/btnOpen"
+                android:layout_width="wrap_content"
+                android:layout_height="40dp"
+                android:text="Abrir archivo"
+                android:textSize="13sp"
+                android:backgroundTint="@color/primary"
+                android:textColor="@color/white"/>
+        </LinearLayout>
+
+        <!-- Album Art -->
+        <ImageView
+            android:id="@+id/imgAlbumArt"
+            android:layout_width="200dp"
+            android:layout_height="200dp"
+            android:layout_gravity="center_horizontal"
+            android:layout_marginBottom="24dp"
+            android:background="@drawable/circle_bg"
+            android:padding="4dp"
+            android:scaleType="centerCrop"
+            android:src="@drawable/ic_music_note"/>
+
+        <!-- Title and Artist -->
+        <TextView
+            android:id="@+id/tvTitle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Sin archivo"
+            android:textColor="@color/white"
+            android:textSize="18sp"
+            android:textStyle="bold"
+            android:gravity="center"
+            android:ellipsize="marquee"
+            android:singleLine="true"
+            android:marqueeRepeatLimit="marquee_forever"
+            android:focusable="true"
+            android:focusableInTouchMode="true"/>
+
+        <TextView
+            android:id="@+id/tvArtist"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="4dp"
+            android:layout_marginBottom="20dp"
+            android:text="Artista desconocido"
+            android:textColor="@color/textSecondary"
+            android:textSize="14sp"
+            android:gravity="center"/>
+
+        <!-- Progress Bar -->
+        <SeekBar
+            android:id="@+id/seekBar"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:max="1000"
+            android:progressTint="@color/primary"
+            android:thumbTint="@color/primary"/>
+
+        <!-- Time Labels -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:layout_marginBottom="24dp">
+
+            <TextView
+                android:id="@+id/tvCurrentTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0:00"
+                android:textColor="@color/textSecondary"
+                android:textSize="12sp"/>
+
+            <View android:layout_width="0dp" android:layout_height="1dp" android:layout_weight="1"/>
+
+            <TextView
+                android:id="@+id/tvTotalTime"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0:00"
+                android:textColor="@color/textSecondary"
+                android:textSize="12sp"/>
+        </LinearLayout>
+
+        <!-- Main Controls -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center"
+            android:layout_marginBottom="20dp">
+
+            <Button
+                android:id="@+id/btnPrev"
+                android:layout_width="60dp"
+                android:layout_height="60dp"
+                android:text="&#9194;"
+                android:textSize="22sp"
+                android:backgroundTint="@color/surface"
+                android:textColor="@color/white"/>
+
+            <Button
+                android:id="@+id/btnPlayPause"
+                android:layout_width="80dp"
+                android:layout_height="80dp"
+                android:layout_marginHorizontal="16dp"
+                android:text="&#9654;"
+                android:textSize="28sp"
+                android:backgroundTint="@color/primary"
+                android:textColor="@color/white"/>
+
+            <Button
+                android:id="@+id/btnNext"
+                android:layout_width="60dp"
+                android:layout_height="60dp"
+                android:text="&#9193;"
+                android:textSize="22sp"
+                android:backgroundTint="@color/surface"
+                android:textColor="@color/white"/>
+        </LinearLayout>
+
+        <!-- Speed Control Label -->
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Velocidad de reproduccion"
+            android:textColor="@color/textSecondary"
+            android:textSize="12sp"
+            android:layout_marginBottom="8dp"/>
+
+        <!-- Speed Chips -->
+        <HorizontalScrollView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:scrollbars="none"
+            android:layout_marginBottom="20dp">
+
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <Button android:id="@+id/chipSpeed05" android:layout_width="60dp" android:layout_height="36dp"
+                    android:text="0.5x" android:textSize="12sp" android:backgroundTint="@color/surface"
+                    android:textColor="@color/white" android:layout_marginEnd="8dp"/>
+                <Button android:id="@+id/chipSpeed075" android:layout_width="64dp" android:layout_height="36dp"
+                    android:text="0.75x" android:textSize="12sp" android:backgroundTint="@color/surface"
+                    android:textColor="@color/white" android:layout_marginEnd="8dp"/>
+                <Button android:id="@+id/chipSpeed1" android:layout_width="60dp" android:layout_height="36dp"
+                    android:text="1.0x" android:textSize="12sp" android:backgroundTint="@color/primary"
+                    android:textColor="@color/white" android:layout_marginEnd="8dp"/>
+                <Button android:id="@+id/chipSpeed125" android:layout_width="64dp" android:layout_height="36dp"
+                    android:text="1.25x" android:textSize="12sp" android:backgroundTint="@color/surface"
+                    android:textColor="@color/white" android:layout_marginEnd="8dp"/>
+                <Button android:id="@+id/chipSpeed15" android:layout_width="60dp" android:layout_height="36dp"
+                    android:text="1.5x" android:textSize="12sp" android:backgroundTint="@color/surface"
+                    android:textColor="@color/white" android:layout_marginEnd="8dp"/>
+                <Button android:id="@+id/chipSpeed2" android:layout_width="60dp" android:layout_height="36dp"
+                    android:text="2.0x" android:textSize="12sp" android:backgroundTint="@color/surface"
+                    android:textColor="@color/white" android:layout_marginEnd="8dp"/>
+                <Button android:id="@+id/chipSpeed3" android:layout_width="60dp" android:layout_height="36dp"
+                    android:text="3.0x" android:textSize="12sp" android:backgroundTint="@color/surface"
+                    android:textColor="@color/white"/>
+            </LinearLayout>
+        </HorizontalScrollView>
+
+        <!-- Bottom Actions -->
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:gravity="center">
+
+            <Button
+                android:id="@+id/btnRepeat"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                android:text="&#8617;"
+                android:textSize="18sp"
+                android:backgroundTint="@color/surface"
+                android:textColor="@color/white"/>
+
+            <Button
+                android:id="@+id/btnSleep"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:layout_marginEnd="8dp"
+                android:text="ZZZ"
+                android:textSize="14sp"
+                android:backgroundTint="@color/surface"
+                android:textColor="@color/white"/>
+
+            <Button
+                android:id="@+id/btnEqualizer"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:text="EQ"
+                android:textSize="14sp"
+                android:backgroundTint="@color/accent"
+                android:textColor="@color/white"/>
+        </LinearLayout>
+
+    </LinearLayout>
+</ScrollView>

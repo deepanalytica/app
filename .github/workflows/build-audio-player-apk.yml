@@ -1,0 +1,52 @@
+name: Build Audio Player APK
+
+on:
+  push:
+    paths:
+      - 'android-audio-player/**'
+      - '.github/workflows/build-audio-player-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - uses: gradle/actions/setup-gradle@v3
+        with:
+          gradle-version: '8.4'
+
+      - name: Build APK
+        working-directory: android-audio-player
+        run: gradle assembleRelease --no-daemon
+
+      - name: Find APK
+        id: find_apk
+        run: |
+          APK=$(find android-audio-player -name "*.apk" | head -1)
+          echo "apk_path=$APK" >> $GITHUB_OUTPUT
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: AudioPlayer-APK
+          path: ${{ steps.find_apk.outputs.apk_path }}
+
+      - name: Publish to GitHub Releases
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete audio-player-latest --yes 2>/dev/null || true
+          gh release create audio-player-latest \
+            --title "Audio Player APK" \
+            --notes "Reproductor de audio con ecualizador, compresor y soporte para todos los formatos." \
+            "${{ steps.find_apk.outputs.apk_path }}#AudioPlayer.apk"
