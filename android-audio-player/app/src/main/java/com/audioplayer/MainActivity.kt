@@ -22,7 +22,7 @@ import androidx.media3.session.SessionToken
 import com.audioplayer.databinding.ActivityMainBinding
 import com.bumptech.glide.Glide
 import com.google.common.util.concurrent.ListenableFuture
-import com.google.common.util.concurrent.MoreExecutors
+import java.util.concurrent.Executor
 import java.util.concurrent.TimeUnit
 
 @OptIn(UnstableApi::class)
@@ -60,7 +60,7 @@ class MainActivity : AppCompatActivity() {
         controllerFuture!!.addListener({
             controller = controllerFuture!!.get()
             onControllerReady()
-        }, MoreExecutors.directExecutor())
+        }, Executor { it.run() })
     }
 
     override fun onStop() {
