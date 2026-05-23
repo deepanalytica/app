@@ -64,13 +64,13 @@ class WaveformView @JvmOverloads constructor(
 
         val barW = w / samples.size
 
-        // Draw bars
+        // Draw bars (no Paint allocation inside loop)
         for (i in samples.indices) {
             val x   = i * barW
             val amp = samples[i] * mid * 0.92f
             val pos = i.toFloat() / samples.size
-            val paint = if (pos in selStart..selEnd) paintBar else paintBarDim
-            canvas.drawRect(x, mid - amp, x + barW - 1f, mid + amp, paint)
+            canvas.drawRect(x, mid - amp, x + barW - 1f, mid + amp,
+                if (pos in selStart..selEnd) paintBar else paintBarDim)
         }
 
         // Draw selection overlay

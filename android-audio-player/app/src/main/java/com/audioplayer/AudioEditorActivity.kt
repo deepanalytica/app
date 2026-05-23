@@ -131,7 +131,7 @@ class AudioEditorActivity : AppCompatActivity() {
         binding.btnExport.isEnabled = false
         binding.btnPreview.isEnabled = false
 
-        val outDir  = File(getExternalFilesDir(null), "AudioEditados").apply { mkdirs() }
+        val outDir  = File(getExternalFilesDir(null) ?: filesDir, "AudioEditados").apply { mkdirs() }
         val outFile = File(outDir, "corte_${System.currentTimeMillis()}.m4a")
 
         lifecycleScope.launch {
