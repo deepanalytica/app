@@ -1,5 +1,6 @@
 package com.audioplayer
 
+import android.app.Activity
 import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
@@ -34,6 +35,19 @@ class MainActivity : AppCompatActivity() {
     private val handler = Handler(Looper.getMainLooper())
     private var sleepTimer: CountDownTimer? = null
     private var currentSpeed = 1.0f
+    private var currentUri: Uri? = null
+
+    private val openEditor = registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+        when (result.resultCode) {
+            RESULT_OK -> result.data?.data?.let { loadAudio(it) }
+            Activity.RESULT_FIRST_USER -> {
+                // preview request: play from seekTo position
+                val seekMs = result.data?.getLongExtra("seek_to_ms", 0L) ?: 0L
+                controller?.seekTo(seekMs)
+                controller?.play()
+            }
+        }
+    }
 
     private val updateProgress = object : Runnable {
         override fun run() {
@@ -108,6 +122,16 @@ class MainActivity : AppCompatActivity() {
 
         binding.btnSleep.setOnClickListener { showSleepTimerDialog() }
         binding.btnRepeat.setOnClickListener { toggleRepeat() }
+        binding.btnEditor.setOnClickListener {
+            val uri = currentUri ?: run {
+                Toast.makeText(this, "Abre un archivo primero", Toast.LENGTH_SHORT).show()
+                return@setOnClickListener
+            }
+            openEditor.launch(
+                Intent(this, AudioEditorActivity::class.java)
+                    .putExtra(AudioEditorActivity.EXTRA_URI, uri)
+            )
+        }
     }
 
     private fun onControllerReady() {
@@ -132,6 +156,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun loadAudio(uri: Uri) {
+        currentUri = uri
         try {
             contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
         } catch (e: SecurityException) {

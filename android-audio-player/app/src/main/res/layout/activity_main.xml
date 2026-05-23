@@ -229,9 +229,20 @@
                 android:layout_width="0dp"
                 android:layout_height="48dp"
                 android:layout_weight="1"
+                android:layout_marginEnd="8dp"
                 android:text="EQ"
                 android:textSize="14sp"
                 android:backgroundTint="@color/accent"
+                android:textColor="@color/white"/>
+
+            <Button
+                android:id="@+id/btnEditor"
+                android:layout_width="0dp"
+                android:layout_height="48dp"
+                android:layout_weight="1"
+                android:text="Editar"
+                android:textSize="14sp"
+                android:backgroundTint="#E91E63"
                 android:textColor="@color/white"/>
         </LinearLayout>
 
