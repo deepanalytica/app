@@ -98,10 +98,14 @@ object SecurityScanner {
     // ── Mic/Camera usage history ──────────────────────────────────────────────
 
     fun scanMicCameraUsageHistory(context: Context): List<SecurityAlert> {
-        val alerts = mutableListOf<SecurityAlert>()
+        val alerts  = mutableListOf<SecurityAlert>()
         val appOps  = context.getSystemService(Context.APP_OPS_SERVICE) as AppOpsManager
         val pm      = context.packageManager
-        val since   = System.currentTimeMillis() - 24 * 60 * 60 * 1000L // last 24h
+        val since   = System.currentTimeMillis() - 24 * 60 * 60 * 1000L
+
+        val getPackages = try {
+            AppOpsManager::class.java.getDeclaredMethod("getPackagesForOps", Array<String>::class.java)
+        } catch (e: Exception) { return alerts }
 
         val opsToCheck = listOf(
             AppOpsManager.OPSTR_RECORD_AUDIO to Category.MIC,
@@ -110,20 +114,24 @@ object SecurityScanner {
 
         for ((op, category) in opsToCheck) {
             try {
-                val m = AppOpsManager::class.java.getDeclaredMethod("getPackagesForOps", Array<String>::class.java)
-                @Suppress("UNCHECKED_CAST")
-                val packages = m.invoke(appOps, arrayOf(op)) as List<AppOpsManager.PackageOps>
-                for (pkgOps in packages) {
-                    val pkg = pkgOps.packageName
+                val packages = getPackages.invoke(appOps, arrayOf(op)) as? List<*> ?: continue
+                for (pkgOpsObj in packages) {
+                    if (pkgOpsObj == null) continue
+                    val pkgCls = pkgOpsObj.javaClass
+                    val pkg = pkgCls.getMethod("getPackageName").invoke(pkgOpsObj) as? String ?: continue
                     if (pkg == context.packageName) continue
 
-                    for (opEntry in pkgOps.ops) {
-                        val lastAccess = opEntry.lastAccessTime
+                    val opsList = pkgCls.getMethod("getOps").invoke(pkgOpsObj) as? List<*> ?: continue
+                    for (entryObj in opsList) {
+                        if (entryObj == null) continue
+                        val lastAccess = try {
+                            entryObj.javaClass.getMethod("getLastAccessTime").invoke(entryObj) as? Long ?: 0L
+                        } catch (e: Exception) { 0L }
+
                         if (lastAccess > since) {
                             val appName = try {
                                 pm.getApplicationLabel(pm.getApplicationInfo(pkg, 0)).toString()
                             } catch (e: Exception) { pkg }
-
                             alerts += SecurityAlert(
                                 title = "${category.icon()} $appName accedió ${if (category == Category.MIC) "al micrófono" else "a la cámara"}",
                                 detail = "Última vez: ${formatTime(lastAccess)}\nPaquete: $pkg",
@@ -134,11 +142,8 @@ object SecurityScanner {
                         }
                     }
                 }
-            } catch (e: SecurityException) {
-                // PACKAGE_USAGE_STATS not granted — handled in UI
-            }
+            } catch (e: Exception) { /* PACKAGE_USAGE_STATS not granted */ }
         }
-
         return alerts
     }
 
