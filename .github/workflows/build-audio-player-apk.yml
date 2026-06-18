@@ -31,7 +31,7 @@ jobs:
         working-directory: android-audio-player
         run: |
           echo "sdk.dir=$ANDROID_HOME" > local.properties
-          gradle assembleRelease --no-daemon --stacktrace 2>&1 | tee /tmp/build.log
+          gradle assembleDebug --no-daemon --stacktrace 2>&1 | tee /tmp/build.log
           exit ${PIPESTATUS[0]}
 
       - name: Upload build log on failure
