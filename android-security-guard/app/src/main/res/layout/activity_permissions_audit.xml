@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent" android:layout_height="match_parent"
+    android:orientation="vertical" android:background="#0D0D12" android:padding="16dp">
+    <TextView android:id="@+id/tvCount" android:layout_width="match_parent"
+        android:layout_height="wrap_content" android:textColor="#9E9E9E"
+        android:textSize="12sp" android:layout_marginBottom="8dp"/>
+    <TextView android:layout_width="match_parent" android:layout_height="wrap_content"
+        android:textColor="#FFFFFF" android:textSize="11sp" android:layout_marginBottom="8dp"
+        android:text="🎙=Mic  📷=Camara  📍=Ubicacion  👤=Contactos  💬=SMS  📞=Llamadas"/>
+    <androidx.recyclerview.widget.RecyclerView android:id="@+id/rvApps"
+        android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/>
+</LinearLayout>

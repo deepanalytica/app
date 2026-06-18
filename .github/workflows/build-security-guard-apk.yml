@@ -1,0 +1,64 @@
+name: Build Security Guard APK
+
+on:
+  push:
+    paths:
+      - 'android-security-guard/**'
+      - '.github/workflows/build-security-guard-apk.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install Gradle 8.4
+        run: |
+          wget -q https://services.gradle.org/distributions/gradle-8.4-bin.zip -O /tmp/gradle.zip
+          unzip -q /tmp/gradle.zip -d /opt/gradle
+          echo "/opt/gradle/gradle-8.4/bin" >> $GITHUB_PATH
+
+      - name: Build APK
+        working-directory: android-security-guard
+        run: |
+          echo "sdk.dir=$ANDROID_HOME" > local.properties
+          gradle assembleRelease --no-daemon --stacktrace 2>&1 | tee /tmp/build.log
+          exit ${PIPESTATUS[0]}
+
+      - name: Upload build log on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-build-log
+          path: /tmp/build.log
+
+      - name: Find APK
+        id: find_apk
+        run: |
+          APK=$(find android-security-guard -name "*.apk" | head -1)
+          echo "apk_path=$APK" >> $GITHUB_OUTPUT
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: SecurityGuard-APK
+          path: ${{ steps.find_apk.outputs.apk_path }}
+
+      - name: Publish to GitHub Releases
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete security-guard-latest --yes 2>/dev/null || true
+          gh release create security-guard-latest \
+            --title "SecurityGuard APK" \
+            --notes "App de seguridad: monitoreo mic/camara, desvio de llamadas, deteccion de hacking." \
+            "${{ steps.find_apk.outputs.apk_path }}#SecurityGuard.apk"
