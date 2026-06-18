@@ -87,7 +87,7 @@ object WaveformLoader {
 
                 // Average accumulated values
                 for (i in amplitudes.indices) {
-                    if (barCounts[i] > 0) amplitudes[i] /= barCounts[i]
+                    if (barCounts[i] > 0) amplitudes[i] = amplitudes[i] / barCounts[i].toFloat()
                 }
 
                 // Normalize to [0.05, 1.0]

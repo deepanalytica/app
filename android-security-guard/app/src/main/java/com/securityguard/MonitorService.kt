@@ -126,11 +126,10 @@ class MonitorService : Service() {
 
     private fun getAppUsingCamera(): String? {
         return try {
-            val pkgOps = appOps.getPackagesForOps(arrayOf(AppOpsManager.OPSTR_CAMERA))
-            pkgOps.firstOrNull { ops ->
-                ops.packageName != packageName &&
-                ops.ops.any { it.op == AppOpsManager.strOpToOp(AppOpsManager.OPSTR_CAMERA) }
-            }?.packageName
+            val m = AppOpsManager::class.java.getDeclaredMethod("getPackagesForOps", Array<String>::class.java)
+            @Suppress("UNCHECKED_CAST")
+            val list = m.invoke(appOps, arrayOf(AppOpsManager.OPSTR_CAMERA)) as List<AppOpsManager.PackageOps>
+            list.firstOrNull { it.packageName != packageName }?.packageName
         } catch (e: Exception) { null }
     }
 

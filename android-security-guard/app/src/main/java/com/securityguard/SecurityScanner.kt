@@ -110,7 +110,9 @@ object SecurityScanner {
 
         for ((op, category) in opsToCheck) {
             try {
-                val packages = appOps.getPackagesForOps(arrayOf(op))
+                val m = AppOpsManager::class.java.getDeclaredMethod("getPackagesForOps", Array<String>::class.java)
+                @Suppress("UNCHECKED_CAST")
+                val packages = m.invoke(appOps, arrayOf(op)) as List<AppOpsManager.PackageOps>
                 for (pkgOps in packages) {
                     val pkg = pkgOps.packageName
                     if (pkg == context.packageName) continue
