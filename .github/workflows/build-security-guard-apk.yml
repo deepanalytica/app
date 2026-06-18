@@ -60,5 +60,5 @@ jobs:
           gh release delete security-guard-latest --yes 2>/dev/null || true
           gh release create security-guard-latest \
             --title "SecurityGuard APK" \
-            --notes "App de seguridad: monitoreo mic/camara, desvio de llamadas, deteccion de hacking." \
+            --notes "Monitor mic/camara en tiempo real, verificacion de desvio de llamadas, deteccion de root y ADB, auditoria de permisos." \
             "${{ steps.find_apk.outputs.apk_path }}#SecurityGuard.apk"

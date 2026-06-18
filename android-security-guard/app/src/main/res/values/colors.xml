@@ -3,9 +3,5 @@
     <color name="background">#0D0D12</color>
     <color name="surface">#1E1E2E</color>
     <color name="primary">#7C4DFF</color>
-    <color name="accent">#00BCD4</color>
     <color name="white">#FFFFFF</color>
-    <color name="danger">#F44336</color>
-    <color name="warning">#FF9800</color>
-    <color name="safe">#4CAF50</color>
 </resources>
