@@ -1,4 +1,4 @@
 import { createApp } from 'vue'
-import App from './App.vue'
+import PraxioWorkbench from './praxiograph/PraxioWorkbench.vue'
 
-createApp(App).mount('#app')
+createApp(PraxioWorkbench).mount('#app')

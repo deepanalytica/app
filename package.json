@@ -11,7 +11,8 @@
     "build:frontend": "vite build",
     "server:start": "node dist/engine/server.js",
     "start": "tsx engine/server.ts",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test:praxio": "tsx scripts/praxio-smoke.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.54.0",
