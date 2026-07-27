@@ -10,12 +10,19 @@ No termina en la respuesta. Termina en artefacto, acción, aprendizaje y descend
 
 ## Cómo correrlo
 
+Requiere Node 18+.
+
 ```bash
 npm install
-npm run client:dev     # abre la app en http://localhost:5173
-npm run build:frontend # build de producción en dist/
+npm run client:dev     # abre la app en http://localhost:3000
 npm run test:praxio    # smoke test del engine (4 dominios + Policy Gate)
+npm run build:frontend # build de producción en dist/
+npm run preview        # sirve el build de producción para revisarlo
 ```
+
+`client:dev` es todo lo que necesitas: el workbench es 100% cliente y no
+requiere backend ni API key. (`npm run dev` levanta además el servidor
+Express del sistema de research anterior, que sí pide `ANTHROPIC_API_KEY`.)
 
 El explainer de arquitectura original está servido en `/architecture.html`.
 
