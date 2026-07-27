@@ -54,6 +54,13 @@ textarea, input {
 .field input { min-width: 200px; }
 textarea:focus, input:focus { outline: none; border-color: #245c7a; box-shadow: 0 0 0 3px rgba(36,92,122,.12); }
 .actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; flex-wrap: wrap; }
+
+@media (max-width: 700px) {
+  .row { flex-direction: column; }
+  .field input { min-width: 0; width: 100%; }
+  .btns { flex: 1; }
+  .btns button { flex: 1; }
+}
 .pain { font-size: 12px; color: #9a3412; background: #fff7ed; border: 1px solid #fed7aa; padding: 5px 10px; border-radius: 999px; }
 .btns { display: flex; gap: 8px; }
 button { font-weight: 900; font-size: 13px; padding: 9px 15px; border-radius: 11px; cursor: pointer; border: 1px solid #245c7a; }

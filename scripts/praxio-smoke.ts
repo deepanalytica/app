@@ -34,6 +34,9 @@ for (const d of DOMAINS) {
   assert(rec.status === 'validated', 'neutral intent => validated')
   assert(toMarkdown(rec).includes(rec.artifact.title), 'markdown export includes title')
   assert(JSON.parse(toJSON(rec)).id === rec.id, 'json export round-trips')
+  // regresión: \b\w rompía acentos ("inundación" → "InundacióN")
+  assert(!/\p{Ll}\p{Lu}/u.test(rec.artifact.title), 'title has no mid-word capitals (acentos)')
+  assert(!/[^\n]\n## /.test(rec.artifact.body), 'every ## heading is preceded by a blank line')
   console.log(`  status=${rec.status} validation=${rec.validation.filter((v) => v.passed).length}/${rec.validation.length}`)
 }
 

@@ -67,7 +67,7 @@ function buildIntent(opts: RunOptions, domain: Domain): IntentContract {
     domain: domain.key,
     intent: opts.intent.trim(),
     audience: opts.audience?.trim() || 'Cliente / equipo de Deep Analytica',
-    goal: opts.goal?.trim() || `Producir un ${domain.artifactType} accionable para ${domain.name}.`,
+    goal: opts.goal?.trim() || `Producir ${articulo(domain.artifactType)} ${domain.artifactType} accionable para ${domain.name}.`,
     keywords: extractKeywords(opts.intent),
     createdAt: new Date().toISOString(),
   }
@@ -161,12 +161,13 @@ function generateArtifact(
     heading,
     content: sectionContent(heading, intent, domain, evidence),
   }))
+  // separación con línea en blanco: un solo \n pega el contenido al
+  // siguiente ## y los parsers estrictos no lo leen como encabezado.
   const body = [
     `# ${brief.title}`,
     `> **Dominio:** ${domain.name} · **Audiencia:** ${brief.audience}`,
-    '',
     ...sections.map((s) => `## ${s.heading}\n\n${s.content}`),
-  ].join('\n')
+  ].join('\n\n')
   return {
     id: uid('art'),
     type: brief.type,
@@ -220,7 +221,7 @@ function sectionContent(
   }
   if (h.includes('promesa') || h.includes('dolor') || h.includes('resumen')) {
     return `**Promesa:** ${intent.goal}\n\n**Dolor que ataca:** ${domain.pain}\n\n` +
-      `Anclado en *${topEvidence}*, este ${domain.artifactType} traduce "${intent.intent}" en un resultado concreto y medible.`
+      `Anclado en *${topEvidence}*, ${articulo(domain.artifactType, true)} ${domain.artifactType} traduce "${intent.intent}" en un resultado concreto y medible.`
   }
   if (h.includes('tabla de contenido') || h.includes('outline') || h.includes('toc')) {
     return domain.outputs.slice(0, 6).map((o, i) => `${i + 1}. ${titleCase(o)}`).join('\n')
@@ -238,7 +239,7 @@ function sectionContent(
     return '```\n' +
       `Actúa como generador PraxioGraph para ${domain.name}.\n` +
       `Intención: ${intent.intent}\nRestricciones: ${domain.constraints.map((c) => c.rule).join(' | ')}\n` +
-      `Entrega un ${domain.artifactType} con evidencia, validación y descendencia.\n` +
+      `Entrega ${articulo(domain.artifactType)} ${domain.artifactType} con evidencia, validación y descendencia.\n` +
       '```'
   }
   if (h.includes('geolocal') || h.includes('contexto') || h.includes('geo')) {
@@ -304,7 +305,7 @@ function buildLearning(domain: Domain, validation: ReturnType<typeof runValidati
   const failed = validation.filter((v) => !v.passed)
   return {
     worked: [
-      `El pipeline madre produjo un ${domain.artifactType} completo con evidencia y descendencia.`,
+      `El pipeline madre produjo ${articulo(domain.artifactType)} ${domain.artifactType} con evidencia, validación y descendencia.`,
       'La ontología del dominio ancló los términos de la intención.',
     ],
     failed: failed.length
@@ -380,6 +381,20 @@ export function runPipeline(opts: RunOptions): ExecutionRecord {
 }
 
 // ── helpers ──
+// Concordancia de género para los tipos de artefacto en español.
+const FEMENINO: Record<string, boolean> = {
+  ficha: true, imagen: true, matriz: true, landing: true,
+  ebook: false, brief: false, mapa: false, protocolo: false, 'prompt-pack': false,
+}
+function articulo(type: string, demostrativo = false): string {
+  const f = FEMENINO[type] ?? false
+  return demostrativo ? (f ? 'esta' : 'este') : f ? 'una' : 'un'
+}
+
+// Capitaliza la inicial de cada palabra respetando acentos y ñ:
+// un \b\w ingenuo rompe "inundación" → "InundacióN".
 function titleCase(s: string): string {
-  return s.replace(/\b\w/g, (c) => c.toUpperCase())
+  return s.replace(/(^|\s)(\p{L})(\p{L}*)/gu, (_, sep, first, rest) =>
+    sep + first.toUpperCase() + rest,
+  )
 }
